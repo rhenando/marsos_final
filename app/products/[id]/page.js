@@ -17,6 +17,8 @@ export default function ProductDetailsPage({ params }) {
   const [additionalNotes, setAdditionalNotes] = useState(""); // Another example input
   const [loading, setLoading] = useState(true); // Add loading state
   const [isChatOpen, setIsChatOpen] = useState(false); // Chat window state
+  const [message, setMessage] = useState(""); // Message input state
+  const [messages, setMessages] = useState([]); // State to store chat messages
 
   // Fetch the product from Firestore
   useEffect(() => {
@@ -38,6 +40,20 @@ export default function ProductDetailsPage({ params }) {
     }
     fetchProduct();
   }, [id]);
+
+  // Handle sending the message
+  const handleSendMessage = () => {
+    if (message.trim() === "") return; // Prevent empty messages
+
+    // Add the new message to the list of messages
+    setMessages((prevMessages) => [
+      ...prevMessages,
+      { text: message, sender: "user" }, // You can add 'sender' to distinguish between user and supplier
+    ]);
+
+    // Clear the input field after sending the message
+    setMessage("");
+  };
 
   // Show preloader while loading
   if (loading) {
@@ -149,16 +165,43 @@ export default function ProductDetailsPage({ params }) {
               <FaTimes />
             </button>
           </div>
-          <div className='h-48 overflow-y-auto mb-2'>
-            <p className='text-gray-500 text-sm'>Hello! How can I help you?</p>
-            {/* Chat messages will be dynamically loaded here */}
+          <div className='text-sm text-gray-600 mb-2'>
+            You are discussing: <strong>{product.productName}</strong>
           </div>
+
+          {/* Display product thumbnails in the chat window */}
+          <div className='flex overflow-x-auto space-x-2 mb-2'>
+            {product.images &&
+              product.images.map((image, index) => (
+                <img
+                  key={index}
+                  src={image.thumbnail}
+                  alt={product.productName}
+                  className='w-12 h-12 object-cover rounded border'
+                />
+              ))}
+          </div>
+
+          {/* Chat messages */}
+          <div className='h-40 overflow-y-auto mb-2'>
+            {messages.map((msg, index) => (
+              <div key={index} className='text-sm mb-2'>
+                <span className='block text-gray-700'>{msg.text}</span>
+              </div>
+            ))}
+          </div>
+
           <input
             type='text'
             placeholder='Type your message...'
+            value={message} // Controlled input bound to message state
+            onChange={(e) => setMessage(e.target.value)} // Update message state on change
             className='w-full border rounded p-2 mb-2'
           />
-          <button className='bg-[#2c6449] text-white py-2 px-4 rounded w-full'>
+          <button
+            className='bg-[#2c6449] text-white py-2 px-4 rounded w-full'
+            onClick={handleSendMessage} // Handle sending the message
+          >
             Send
           </button>
         </div>
