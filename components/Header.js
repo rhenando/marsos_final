@@ -17,8 +17,7 @@ import {
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false); // State to control menu visibility
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false); // State for submenu visibility
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // Simulating user logged-in state (you can replace this with your actual login logic)
+  const [isLoggedIn, setIsLoggedIn] = useState(false); // Simulating user logged-in state (replace with actual login logic)
   const userMenuRef = useRef(null); // Reference for the user menu
   const router = useRouter(); // Initialize the router
 
@@ -35,28 +34,13 @@ export default function Header() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      // Close the submenu if clicked outside
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
-        setIsUserMenuOpen(false);
-      }
-    };
-    // Add event listener for clicks outside the menu
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      // Cleanup the event listener on component unmount
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
   const handleUserIconClick = () => {
-    // If the user is not logged in, redirect to the registration page
-    if (!isLoggedIn) {
-      router.push("/auth/registration");
+    // If the user is logged in, redirect to the supplier dashboard
+    if (isLoggedIn) {
+      router.push("/dashboard/supplier");
     } else {
-      // Otherwise, toggle the user menu
-      setIsUserMenuOpen(!isUserMenuOpen);
+      // Otherwise, redirect to the registration page
+      router.push("/auth/registration");
     }
   };
 
@@ -79,13 +63,19 @@ export default function Header() {
           }`}
         >
           {/* Hamburger Menu Icon for small and medium screens (left side) */}
-          <div className='md:hidden flex items-center'>
+          <div className='md:hidden flex items-center space-x-4'>
             <button
               className='text-2xl focus:outline-none'
               onClick={() => setIsMenuOpen(!isMenuOpen)}
             >
               {isMenuOpen ? <FaTimes /> : <FaBars />}
             </button>
+
+            {/* User Icon for small and medium screens */}
+            <FaUser
+              className='text-2xl cursor-pointer hover:text-[#2c6449]'
+              onClick={handleUserIconClick} // Redirect based on login status
+            />
           </div>
 
           {/* Main Logo Section (right side on small and medium screens, and on the right for large screens) */}
@@ -114,39 +104,6 @@ export default function Header() {
                 className='w-7 h-7 hover:text-[#2c6449] cursor-pointer'
                 onClick={handleUserIconClick} // Call the user icon click handler
               />
-
-              {/* Submenu Container */}
-              {isUserMenuOpen && isLoggedIn && (
-                <div
-                  ref={userMenuRef}
-                  className='absolute top-full mt-2 bg-white text-gray-800 p-4 shadow-lg rounded-lg z-50 w-64 max-h-[300px] overflow-y-auto'
-                  style={{ zIndex: 1001 }} // Ensure submenu is above everything
-                >
-                  <ul className='text-base space-y-4'>
-                    <li>
-                      <Link href='/my-marsos'>My Marsos</Link>
-                    </li>
-                    <li>
-                      <Link href='/orders'>Orders</Link>
-                    </li>
-                    <li>
-                      <Link href='/messages'>Messages</Link>
-                    </li>
-                    <li>
-                      <Link href='/rfqs'>RFQs</Link>
-                    </li>
-                    <li>
-                      <Link href='/favorites'>Favorites</Link>
-                    </li>
-                    <li>
-                      <Link href='/account'>Account</Link>
-                    </li>
-                    <li>
-                      <Link href='/sign-out'>Sign Out</Link>
-                    </li>
-                  </ul>
-                </div>
-              )}
 
               {/* Other Icons */}
               <FaShoppingCart className='w-7 h-7 hover:text-[#2c6449] cursor-pointer' />
