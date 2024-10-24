@@ -43,11 +43,11 @@ export default function Header() {
         <div className='absolute inset-0'></div>
 
         <div
-          className={`relative max-w-screen-xl mx-auto px-4 lg:px-10 flex flex-col md:flex-row justify-between items-center py-3 transition-all duration-500 ${
+          className={`relative max-w-screen-xl mx-auto px-4 lg:px-10 flex items-center justify-between md:flex-row-reverse py-3 transition-all duration-500 ${
             isScrolled ? "py-2" : "py-3"
           }`}
         >
-          {/* Hamburger Menu Icon for small screens */}
+          {/* Hamburger Menu Icon for small and medium screens (left side) */}
           <div className='md:hidden flex items-center'>
             <button
               className='text-2xl focus:outline-none'
@@ -57,7 +57,20 @@ export default function Header() {
             </button>
           </div>
 
-          {/* Icons and Info Section */}
+          {/* Main Logo Section (right side on small and medium screens, and on the right for large screens) */}
+          <Link href='/'>
+            <div className='ml-auto md:ml-0 transition-all duration-500'>
+              <Image
+                src={logo}
+                alt='Logo'
+                width={isScrolled ? 60 : 100} // Reduce logo size when scrolled
+                height={isScrolled ? 60 : 100}
+                className='transition-all duration-500'
+              />
+            </div>
+          </Link>
+
+          {/* Icons and Info Section - Hidden on small/medium, visible on large screens */}
           <div
             className={`hidden md:flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-8 text-xl w-full md:w-auto transition-all duration-500 ${
               isScrolled ? "translate-x-[-50px]" : "translate-x-0"
@@ -89,27 +102,10 @@ export default function Header() {
               <span>English-USD</span>
             </div>
           </div>
-
-          {/* Main Logo Section */}
-          <Link href='/'>
-            <div
-              className={`mt-4 md:mt-0 transition-all duration-500 ${
-                isScrolled ? "ml-auto" : "mx-auto md:mx-0"
-              }`}
-            >
-              <Image
-                src={logo}
-                alt='Logo'
-                width={isScrolled ? 60 : 100} // Reduce logo size when scrolled
-                height={isScrolled ? 60 : 100}
-                className='transition-all duration-500'
-              />
-            </div>
-          </Link>
         </div>
       </header>
 
-      {/* Hamburger Menu Links */}
+      {/* Hamburger Menu Links (small and medium screens) */}
       <div
         className={`${
           isMenuOpen ? "block" : "hidden"
