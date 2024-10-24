@@ -64,13 +64,13 @@ export default function ProductDetailsPage({ params }) {
   const generatePDF = (quotationData, subtotal, total) => {
     const doc = new jsPDF();
 
-    // Title of the PDF (Arabic or English as needed)
+    // Title of the PDF
     doc.setFontSize(20);
-    doc.text("عرض سعر", 105, 20, null, null, "center"); // Title centered
+    doc.text("Quotation", 105, 20, null, null, "center"); // Title centered
 
     // Company Info (can be updated as needed)
     doc.setFontSize(12);
-    doc.text("مصنع الصاعدي للخرسانة الجاهزة", 105, 30, null, null, "center"); // Arabic company name
+    doc.text("Marsos Platform", 105, 30, null, null, "center"); // English company name
 
     // Product Information
     doc.setFontSize(10);

@@ -1,28 +1,86 @@
+// Import necessary Firebase libraries and Next.js components
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  getFirestore,
+  collection,
+  getDocs,
+  doc,
+  onSnapshot,
+} from "firebase/firestore";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { getStorage, ref, getDownloadURL } from "firebase/storage";
 import Image from "next/image";
-import authLogo from "/public/logo.svg"; // Logo for the watermark (replace with actual path)
+import firebaseApp from "../../lib/firebase"; // Import your Firebase config
+
+// Initialize Firebase services
+const db = getFirestore(firebaseApp);
+const storage = getStorage(firebaseApp);
+const auth = getAuth(firebaseApp);
 
 export default function ChatWindow() {
+  const [contacts, setContacts] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [user, setUser] = useState(null);
+  const [logoUrl, setLogoUrl] = useState("/logo.svg"); // Default path, replaced by Firebase
 
-  // Sample chat data (can be fetched dynamically)
-  const contacts = [
-    {
-      id: 1,
-      name: "Marsos Seller",
-      lastMessage: "Hello, how are you?",
-      timestamp: "2024-10-23",
-      avatar: "/public/logo.svg", // replace with actual avatar path
-    },
-    {
-      id: 2,
-      name: "Marsos Buyer",
-      lastMessage: "Can we schedule a call?",
-      timestamp: "2024-10-22",
-      avatar: "/public/logo.svg", // replace with actual avatar path
-    },
-  ];
+  // Fetch contacts from Firestore
+  useEffect(() => {
+    const fetchContacts = async () => {
+      try {
+        const contactsSnapshot = await getDocs(collection(db, "contacts"));
+        const contactsList = contactsSnapshot.docs.map((doc) => doc.data());
+        setContacts(contactsList);
+      } catch (error) {
+        console.error("Error fetching contacts: ", error);
+      }
+    };
+    fetchContacts();
+  }, []);
+
+  // Fetch logo from Firebase Storage
+  useEffect(() => {
+    const fetchLogo = async () => {
+      try {
+        const logoRef = ref(storage, "logo.svg"); // Replace with your logo path in Firebase Storage
+        const logoUrl = await getDownloadURL(logoRef);
+        setLogoUrl(logoUrl);
+      } catch (error) {
+        console.error("Error fetching logo: ", error);
+      }
+    };
+    fetchLogo();
+  }, []);
+
+  // Fetch chat messages for the selected contact in real-time
+  useEffect(() => {
+    if (selectedChat) {
+      const chatRef = doc(db, "chats", selectedChat.id);
+      const unsubscribe = onSnapshot(
+        collection(chatRef, "messages"),
+        (snapshot) => {
+          const messages = snapshot.docs.map((doc) => doc.data());
+          setChatMessages(messages);
+        }
+      );
+
+      return () => unsubscribe(); // Cleanup listener on unmount
+    }
+  }, [selectedChat]);
+
+  // Handle Firebase Authentication for user-based chats
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUser(user); // Store the authenticated user info
+      } else {
+        setUser(null); // Handle when the user is not authenticated
+      }
+    });
+
+    return () => unsubscribe(); // Cleanup on unmount
+  }, []);
 
   return (
     <div className='flex items-center justify-center h-screen bg-gray-50'>
@@ -31,7 +89,13 @@ export default function ChatWindow() {
         <div className='w-2/3 bg-white flex flex-col items-center justify-center p-8 relative'>
           {/* Watermark Logo */}
           <div className='absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none'>
-            <Image src={authLogo} alt='Watermark Logo' className='w-96 h-96' />
+            <Image
+              src={logoUrl}
+              alt='Watermark Logo'
+              width={400} // Set a fixed width
+              height={400} // Set a fixed height
+              className='w-96 h-96'
+            />
           </div>
 
           {selectedChat ? (
@@ -39,8 +103,13 @@ export default function ChatWindow() {
               <h2 className='text-xl text-[#2c6449] font-semibold'>
                 {selectedChat.name}
               </h2>
-              <p className='text-gray-600'>{selectedChat.lastMessage}</p>
-              {/* Additional chat interface can go here */}
+              <div className='overflow-y-auto h-64'>
+                {chatMessages.map((message, index) => (
+                  <p key={index} className='text-gray-600'>
+                    {message.text}
+                  </p>
+                ))}
+              </div>
             </div>
           ) : (
             <div className='flex flex-col items-center justify-center h-full z-10'>

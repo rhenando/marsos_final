@@ -14,44 +14,44 @@ export default function Footer() {
         <div className='grid grid-cols-1 md:grid-cols-3 gap-8'>
           {/* Left Column: Company Overview */}
           <div>
-            <h3 className='text-lg font-semibold mb-4'>Marsos</h3>
+            <h3 className='text-lg font-semibold mb-4'>مرسوس</h3>
             <p className='text-gray-300 mb-4'>
-              We are a customer-focused company offering top-quality products
-              and services to help you excel. Explore our product range and
-              connect with us.
+              نحن شركة تركز على العملاء وتقدم منتجات وخدمات عالية الجودة
+              لمساعدتك على التفوق. استكشف مجموعة منتجاتنا وتواصل معنا.
             </p>
-            <p className='text-gray-300'>1234 Street Name, City, Country</p>
-            <p className='text-gray-300'>Phone: +123-456-7890</p>
-            <p className='text-gray-300'>Email: info@yourcompany.com</p>
+            <p className='text-gray-300'>1234 اسم الشارع، المدينة، الدولة</p>
+            <p className='text-gray-300'>الهاتف: +123-456-7890</p>
+            <p className='text-gray-300'>الهاتف: +123-456-7890</p>
+            <p className='text-gray-300'>البريد الإلكتروني:info@marsos.com</p>
           </div>
 
           {/* Middle Column: Quick Links */}
           <div className='flex flex-col space-y-4'>
-            <h3 className='text-lg font-semibold mb-4'>Quick Links</h3>
+            <h3 className='text-lg font-semibold mb-4'>روابط سريعة</h3>
             <ul className='space-y-2'>
               <li>
                 <Link href='/about-us' className='hover:text-gray-300'>
-                  About Us
+                  من نحن
                 </Link>
               </li>
               <li>
                 <Link href='/help-center' className='hover:text-gray-300'>
-                  Help Center
+                  مركز المساعدة
                 </Link>
               </li>
               <li>
                 <Link href='/privacy-policy' className='hover:text-gray-300'>
-                  Privacy Policy
+                  سياسة الخصوصية
                 </Link>
               </li>
               <li>
                 <Link href='/terms-conditions' className='hover:text-gray-300'>
-                  Terms & Conditions
+                  الشروط والأحكام
                 </Link>
               </li>
               <li>
                 <Link href='/careers' className='hover:text-gray-300'>
-                  Careers
+                  الوظائف
                 </Link>
               </li>
             </ul>
@@ -59,20 +59,20 @@ export default function Footer() {
 
           {/* Right Column: Newsletter Signup & Social Icons */}
           <div>
-            <h3 className='text-lg font-semibold mb-4'>Stay Connected</h3>
+            <h3 className='text-lg font-semibold mb-4'>ابقَ على تواصل</h3>
             <p className='text-gray-300 mb-4'>
-              Subscribe to our newsletter and stay updated with the latest news
-              and special offers.
+              اشترك في نشرتنا الإخبارية وابقَ على اطلاع بآخر الأخبار والعروض
+              الخاصة.
             </p>
             {/* Newsletter Signup Form */}
             <form className='flex mb-4'>
               <input
                 type='email'
-                placeholder='Enter your email'
+                placeholder='أدخل بريدك الإلكتروني'
                 className='w-full p-2 rounded-l-md text-gray-800'
               />
               <button className='bg-[#1d4d36] p-2 rounded-r-md hover:bg-[#15422c]'>
-                Subscribe
+                اشترك
               </button>
             </form>
             {/* Social Media Icons */}
@@ -115,7 +115,7 @@ export default function Footer() {
 
         {/* Footer Bottom */}
         <div className='mt-8 border-t border-gray-600 pt-6 text-center text-gray-400 text-sm'>
-          © {new Date().getFullYear()} Marsos. All rights reserved.
+          © {new Date().getFullYear()} مرسوس. جميع الحقوق محفوظة.
         </div>
       </div>
     </footer>

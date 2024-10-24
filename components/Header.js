@@ -9,10 +9,13 @@ import {
   FaShoppingCart,
   FaClipboardList,
   FaCommentDots,
+  FaBars, // Add hamburger icon
+  FaTimes, // Add close icon
 } from "react-icons/fa"; // For icons
 
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false); // State to control menu visibility
 
   useEffect(() => {
     const handleScroll = () => {
@@ -44,9 +47,19 @@ export default function Header() {
             isScrolled ? "py-2" : "py-3"
           }`}
         >
+          {/* Hamburger Menu Icon for small screens */}
+          <div className='md:hidden flex items-center'>
+            <button
+              className='text-2xl focus:outline-none'
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+            >
+              {isMenuOpen ? <FaTimes /> : <FaBars />}
+            </button>
+          </div>
+
           {/* Icons and Info Section */}
           <div
-            className={`flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-8 text-xl w-full md:w-auto transition-all duration-500 ${
+            className={`hidden md:flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-8 text-xl w-full md:w-auto transition-all duration-500 ${
               isScrolled ? "translate-x-[-50px]" : "translate-x-0"
             }`}
           >
@@ -60,7 +73,8 @@ export default function Header() {
 
             {/* Delivery Info */}
             <div className='flex items-center justify-center md:justify-start space-x-2'>
-              <span className='text-lg'>Deliver to:</span>
+              <span className='text-lg'>التوصيل إلى:</span>{" "}
+              {/* Translated "Deliver to:" */}
               <Image
                 src='/sa-flag.svg'
                 alt='Saudi Flag'
@@ -95,16 +109,44 @@ export default function Header() {
         </div>
       </header>
 
-      {/* Horizontal Navigation Bar with White Background on Scroll */}
+      {/* Hamburger Menu Links */}
       <div
-        className={`transition-all duration-500 py-4 shadow-md ${
+        className={`${
+          isMenuOpen ? "block" : "hidden"
+        } md:hidden bg-[#2c6449] text-white transition-all duration-500 py-4`}
+      >
+        <nav className='flex flex-col space-y-4 text-center'>
+          <Link href='/' className='hover:text-gray-300'>
+            البائعين {/* Become a vendor */}
+          </Link>
+          <Link href='/' className='hover:text-gray-300'>
+            حمل التطبيق {/* Get the app */}
+          </Link>
+          <Link href='/' className='hover:text-gray-300'>
+            خدمة العملاء {/* Help Center */}
+          </Link>
+          <Link href='/' className='hover:text-gray-300'>
+            منتجات سعودية {/* Products */}
+          </Link>
+          <Link href='/' className='hover:text-gray-300'>
+            معدات {/* Equipment */}
+          </Link>
+          <Link href='/' className='hover:text-gray-300'>
+            مواد بناء {/* Construction */}
+          </Link>
+        </nav>
+      </div>
+
+      {/* Horizontal Navigation Bar for larger screens */}
+      <div
+        className={`hidden md:block transition-all duration-500 py-4 shadow-md ${
           isScrolled
             ? "bg-white text-[#2c6449] fixed top-0 left-0 w-full z-40"
             : "bg-[#2c6449] text-white"
         }`}
       >
         <nav className='max-w-screen-xl mx-auto flex flex-col md:flex-row justify-between items-center'>
-          {/* Right-side Links (now on the left) */}
+          {/* Right-side Links */}
           <div className='flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-10'>
             <Link href='/' className='hover:text-gray-500'>
               البائعين {/* Become a vendor */}
@@ -117,10 +159,10 @@ export default function Header() {
             </Link>
           </div>
 
-          {/* Left-side Links (now on the right) */}
+          {/* Left-side Links */}
           <div className='flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-10 mt-4 md:mt-0 items-center'>
             <Link href='/' className='hover:text-gray-500'>
-              منتجات سعودية {/* Products */}
+              منتجات سعودية {/* Products */}
             </Link>
             <Link href='/' className='hover:text-gray-500'>
               معدات {/* Equipment */}
@@ -128,7 +170,6 @@ export default function Header() {
             <Link href='/' className='hover:text-gray-500'>
               مواد بناء {/* Construction */}
             </Link>
-            {/* Add the Logo Beside the Links, but only visible when scrolled */}
             {isScrolled && (
               <Image
                 src={logo}
