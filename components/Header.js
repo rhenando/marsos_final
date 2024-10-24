@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation"; // Import useRouter for redirection
 import logo from "../public/logo-marsos.svg"; // Adjust the path to your logo
 import {
   FaUser,
@@ -17,8 +18,9 @@ export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false); // State to control menu visibility
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false); // State for submenu visibility
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // Simulating user logged-in state
+  const [isLoggedIn, setIsLoggedIn] = useState(false); // Simulating user logged-in state (you can replace this with your actual login logic)
   const userMenuRef = useRef(null); // Reference for the user menu
+  const router = useRouter(); // Initialize the router
 
   useEffect(() => {
     const handleScroll = () => {
@@ -48,8 +50,14 @@ export default function Header() {
     };
   }, []);
 
-  const toggleUserMenu = () => {
-    setIsUserMenuOpen(!isUserMenuOpen); // Toggle user menu on click
+  const handleUserIconClick = () => {
+    // If the user is not logged in, redirect to the registration page
+    if (!isLoggedIn) {
+      router.push("/auth/registration");
+    } else {
+      // Otherwise, toggle the user menu
+      setIsUserMenuOpen(!isUserMenuOpen);
+    }
   };
 
   return (
@@ -104,11 +112,11 @@ export default function Header() {
               {/* User Icon */}
               <FaUser
                 className='w-7 h-7 hover:text-[#2c6449] cursor-pointer'
-                onClick={toggleUserMenu}
+                onClick={handleUserIconClick} // Call the user icon click handler
               />
 
               {/* Submenu Container */}
-              {isUserMenuOpen && (
+              {isUserMenuOpen && isLoggedIn && (
                 <div
                   ref={userMenuRef}
                   className='absolute top-full mt-2 bg-white text-gray-800 p-4 shadow-lg rounded-lg z-50 w-64 max-h-[300px] overflow-y-auto'
@@ -133,15 +141,9 @@ export default function Header() {
                     <li>
                       <Link href='/account'>Account</Link>
                     </li>
-                    {isLoggedIn ? (
-                      <li>
-                        <Link href='/sign-out'>Sign Out</Link>
-                      </li>
-                    ) : (
-                      <li>
-                        <Link href='/login'>Log In</Link>
-                      </li>
-                    )}
+                    <li>
+                      <Link href='/sign-out'>Sign Out</Link>
+                    </li>
                   </ul>
                 </div>
               )}
