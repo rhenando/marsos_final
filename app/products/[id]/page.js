@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useEffect } from "react";
 import { db } from "../../../lib/firebase"; // Adjust path as needed
 import { doc, getDoc } from "firebase/firestore";
@@ -123,6 +122,23 @@ export default function ProductDetailsPage({ params }) {
         finalY + 30
       );
     }
+
+    // Add Terms and Conditions Placeholder
+    doc.setFontSize(10);
+    const termsStartY = finalY + 50; // Adjust this value if needed
+    doc.text("Terms and Conditions:", 10, termsStartY);
+
+    const terms = [
+      "1. The product is provided as described.",
+      "2. Payment must be made within 30 days.",
+      "3. Delivery time is estimated and subject to change.",
+      "4. Returns are accepted within 14 days of receipt.",
+      "5. Any disputes shall be governed by the laws of the local jurisdiction.",
+    ];
+
+    terms.forEach((term, index) => {
+      doc.text(term, 10, termsStartY + (index + 1) * 10);
+    });
 
     // Save the PDF
     doc.save(`${quotationData.productName}_quotation.pdf`);

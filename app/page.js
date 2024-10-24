@@ -1,4 +1,3 @@
-// pages/ProductsPage.js
 "use client";
 
 import { useState, useEffect } from "react";
@@ -11,6 +10,7 @@ import Image from "next/image";
 import bannerImg from "../public/banner.webp";
 import CategoryList from "@/components/CategoryList"; // Import CategoryList component
 import ProductList from "@/components/ProductList"; // Import ProductList component
+import Preloader from "@/components/Preloader"; // Import Preloader component
 
 export default function ProductsPage() {
   const [products, setProducts] = useState([]);
@@ -58,7 +58,8 @@ export default function ProductsPage() {
   }, []);
 
   if (loading) {
-    return <p>Loading data...</p>;
+    // Show Preloader while loading
+    return <Preloader />;
   }
 
   return (
@@ -80,7 +81,7 @@ export default function ProductsPage() {
           </p>
           <div className='flex space-x-4'>
             <Link
-              href='/register'
+              href='/products'
               className='bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600'
             >
               تسوق الآن
