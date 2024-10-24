@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useEffect } from "react";
 import { db } from "../../../lib/firebase"; // Adjust path as needed
 import { doc, getDoc } from "firebase/firestore";
@@ -60,26 +61,44 @@ export default function ProductDetailsPage({ params }) {
     return applicablePrice * quantity;
   }
 
+  // Function to convert an image to Base64 format
+  const convertImageToBase64 = async (url) => {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result); // Convert blob to Base64
+      reader.readAsDataURL(blob);
+    });
+  };
+
   // Function to generate a PDF with the order details
-  const generatePDF = (quotationData, subtotal, total) => {
+  const generatePDF = async (quotationData, subtotal, total) => {
     const doc = new jsPDF();
+
+    // Load the logo image (adjust path to your logo)
+    const logoUrl = "/logo.png"; // Update with the correct logo path
+    const logoImg = await convertImageToBase64(logoUrl);
+
+    // Add the logo to the PDF
+    doc.addImage(logoImg, "PNG", 10, 10, 50, 20); // Adjust position and size
 
     // Title of the PDF
     doc.setFontSize(20);
-    doc.text("Quotation", 105, 20, null, null, "center"); // Title centered
+    doc.text("Quotation", 105, 40, null, null, "center"); // Title centered
 
     // Company Info (can be updated as needed)
     doc.setFontSize(12);
-    doc.text("Marsos Platform", 105, 30, null, null, "center"); // English company name
+    doc.text("Marsos Platform", 105, 50, null, null, "center"); // English company name
 
     // Product Information
     doc.setFontSize(10);
-    doc.text(`Product Name: ${quotationData.productName}`, 10, 50);
-    doc.text(`Quantity: ${quotationData.quantity} Piece/s`, 10, 60);
+    doc.text(`Product Name: ${quotationData.productName}`, 10, 70);
+    doc.text(`Quantity: ${quotationData.quantity} Piece/s`, 10, 80);
 
     // Example table for price ranges (using autoTable for better formatting)
     autoTable(doc, {
-      startY: 70,
+      startY: 90,
       head: [["Min Quantity", "Max Quantity", "Price (SAR)"]],
       body: quotationData.priceRanges.map((range) => [
         range.minQuantity,
