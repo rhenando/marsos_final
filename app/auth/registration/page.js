@@ -16,12 +16,19 @@ export default function RegistrationPage() {
     }
   };
 
+  const handleLogin = () => {
+    router.push("/auth/login"); // Redirect to login page
+  };
+
+  const handleGuestBrowse = () => {
+    router.push("/products"); // Redirect to product listing for guest browsing
+  };
+
   return (
     <div className='flex flex-col items-center justify-center min-h-screen bg-gray-50'>
       <div className='w-full max-w-md p-8 bg-white rounded-lg shadow-lg'>
         {/* Logo */}
         <div className='flex justify-center mb-8'>
-          {/* Replace this with the actual logo image */}
           <Image src={authLogo} alt='Logo' className='w-28 h-28' />
         </div>
 
@@ -57,10 +64,31 @@ export default function RegistrationPage() {
         {/* Next Button */}
         <button
           onClick={handleNext}
-          className='w-full py-3 bg-[#2c6449] text-white rounded-md font-semibold hover:bg-[#1d4d36] transition-all ease-in-out duration-200'
+          className='w-full py-3 bg-[#2c6449] text-white rounded-md font-semibold hover:bg-[#1d4d36] transition-all ease-in-out duration-200 mb-4'
         >
           Next
         </button>
+
+        {/* Text Links for Login and Guest Browsing */}
+        <div className='text-center mt-4'>
+          <p className='text-sm text-gray-600'>
+            Or you already have an account with us?{" "}
+            <span
+              onClick={handleLogin}
+              className='text-[#2c6449] cursor-pointer font-semibold hover:underline'
+            >
+              Login
+            </span>
+          </p>
+          <p className='text-sm text-gray-600 mt-2'>
+            <span
+              onClick={handleGuestBrowse}
+              className='text-[#2c6449] cursor-pointer font-semibold hover:underline'
+            >
+              Browse as a Guest
+            </span>
+          </p>
+        </div>
       </div>
     </div>
   );
