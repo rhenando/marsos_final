@@ -1,154 +1,157 @@
 "use client"; // For client-side rendering
-
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import {
-  getFirestore,
   collection,
-  getDocs,
-  doc,
   onSnapshot,
+  query,
+  orderBy,
+  addDoc,
 } from "firebase/firestore";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { getStorage, ref, getDownloadURL } from "firebase/storage";
-import Image from "next/image";
-import { firebaseApp, db, auth, storage } from "../../lib/firebase"; // Import named exports
+import { db } from "../../lib/firebase"; // Firebase configuration
 
-// No need to initialize Firebase services again since they're already initialized in firebase.js
-
-export default function ChatWindow() {
-  const [contacts, setContacts] = useState([]);
-  const [selectedChat, setSelectedChat] = useState(null);
-  const [chatMessages, setChatMessages] = useState([]);
-  const [user, setUser] = useState(null);
-  const [logoUrl, setLogoUrl] = useState("/logo.svg"); // Default path, replaced by Firebase
+export default function ChatPage() {
+  const [message, setMessage] = useState(""); // Holds the message typed by the user
+  const [messages, setMessages] = useState([]); // Holds all messages fetched from Firestore
+  const [selectedChat, setSelectedChat] = useState(null); // Holds selected chat contact
+  const [contacts, setContacts] = useState([]); // Will hold contacts fetched from Firestore
 
   // Fetch contacts from Firestore
   useEffect(() => {
-    const fetchContacts = async () => {
-      try {
-        const contactsSnapshot = await getDocs(collection(db, "contacts"));
-        const contactsList = contactsSnapshot.docs.map((doc) => doc.data());
-        setContacts(contactsList);
-      } catch (error) {
-        console.error("Error fetching contacts: ", error);
-      }
-    };
-    fetchContacts();
+    const contactsRef = collection(db, "contacts"); // Firestore collection for contacts
+    const unsubscribe = onSnapshot(contactsRef, (snapshot) => {
+      const contactsArray = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setContacts(contactsArray); // Set contacts state with Firestore data
+    });
+
+    return () => unsubscribe(); // Cleanup the listener on unmount
   }, []);
 
-  // Fetch logo from Firebase Storage
-  useEffect(() => {
-    const fetchLogo = async () => {
-      try {
-        const logoRef = ref(storage, "logo.svg"); // Replace with your logo path in Firebase Storage
-        const logoUrl = await getDownloadURL(logoRef);
-        setLogoUrl(logoUrl);
-      } catch (error) {
-        console.error("Error fetching logo: ", error);
-      }
-    };
-    fetchLogo();
-  }, []);
-
-  // Fetch chat messages for the selected contact in real-time
+  // Fetch messages in real-time from Firestore for the selected chat
   useEffect(() => {
     if (selectedChat) {
-      const chatRef = doc(db, "chats", selectedChat.id);
-      const unsubscribe = onSnapshot(
-        collection(chatRef, "messages"),
-        (snapshot) => {
-          const messages = snapshot.docs.map((doc) => doc.data());
-          setChatMessages(messages);
-        }
-      );
+      const messagesRef = collection(db, "chats", selectedChat.id, "messages");
+      const q = query(messagesRef, orderBy("timestamp", "asc"));
 
-      return () => unsubscribe(); // Cleanup listener on unmount
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const messagesArray = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setMessages(messagesArray); // Set the real-time messages
+      });
+
+      return () => unsubscribe(); // Cleanup listener when unmounting or when chat changes
     }
   }, [selectedChat]);
 
-  // Handle Firebase Authentication for user-based chats
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setUser(user); // Store the authenticated user info
-      } else {
-        setUser(null); // Handle when the user is not authenticated
-      }
-    });
+  // Send message to Firestore
+  const sendMessage = async () => {
+    if (message.trim() === "") return; // Avoid sending empty messages
 
-    return () => unsubscribe(); // Cleanup on unmount
-  }, []);
+    try {
+      const messagesRef = collection(db, "chats", selectedChat.id, "messages");
+      await addDoc(messagesRef, {
+        text: message,
+        userId: "user_123", // Replace with authenticated user ID
+        timestamp: new Date(),
+      });
+      setMessage(""); // Clear the input field after sending
+    } catch (error) {
+      console.error("Error sending message:", error);
+    }
+  };
 
   return (
-    <div className='flex items-center justify-center h-screen bg-gray-50'>
-      <div className='flex w-full max-w-5xl h-4/5 bg-white rounded-lg shadow-lg'>
-        {/* Main Chat Area on the left */}
-        <div className='w-2/3 bg-white flex flex-col items-center justify-center p-8 relative'>
-          {/* Watermark Logo */}
-          <div className='absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none'>
-            <Image
-              src={logoUrl}
-              alt='Watermark Logo'
-              width={400} // Set a fixed width
-              height={400} // Set a fixed height
-              className='w-96 h-96'
-            />
-          </div>
+    <div className='flex h-screen bg-gray-100'>
+      {/* Left chat window (Empty state or chat content) */}
+      <div className='flex-1 bg-white flex flex-col justify-center items-center relative'>
+        {selectedChat ? (
+          <div className='w-full h-full flex flex-col'>
+            {/* Messages List */}
+            <div className='flex-1 overflow-y-auto p-4'>
+              {messages.map((msg) => (
+                <div key={msg.id} className='mb-2'>
+                  <strong>{msg.userId}: </strong>
+                  <span>{msg.text}</span>
+                </div>
+              ))}
+            </div>
 
-          {selectedChat ? (
-            <div className='z-10'>
-              <h2 className='text-xl text-[#2c6449] font-semibold'>
-                {selectedChat.name}
-              </h2>
-              <div className='overflow-y-auto h-64'>
-                {chatMessages.map((message, index) => (
-                  <p key={index} className='text-gray-600'>
-                    {message.text}
-                  </p>
-                ))}
-              </div>
+            {/* Input field and send button */}
+            <div className='p-4 flex items-center border-t'>
+              <input
+                type='text'
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder='Type a message...'
+                className='flex-1 border rounded-md p-2'
+              />
+              <button
+                onClick={sendMessage}
+                className='ml-2 bg-blue-500 text-white p-2 rounded-md'
+              >
+                Send
+              </button>
             </div>
-          ) : (
-            <div className='flex flex-col items-center justify-center h-full z-10'>
-              <p className='mt-6 text-gray-500 text-lg'>
-                Chat and source on the go with{" "}
-                <span className='text-[#2c6449] font-semibold'>
-                  Marsos Platform
-                </span>
-              </p>
-            </div>
-          )}
+          </div>
+        ) : (
+          <div className='text-center flex flex-col justify-center items-center h-full'>
+            <img
+              src='/your-placeholder-image.png' // Add appropriate image path
+              alt='Placeholder'
+              className='w-64 h-64 opacity-50'
+            />
+            <p className='text-gray-500 mt-4'>
+              Chat and source on the go with{" "}
+              <span className='text-blue-500'>Marsos Platform</span>
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Right contacts sidebar */}
+      <div className='w-1/3 bg-white border-l flex flex-col'>
+        {/* Messenger Header */}
+        <div className='flex items-center justify-between p-4 border-b'>
+          <h2 className='text-xl font-bold'>Messenger</h2>
+          <span className='bg-red-500 text-white px-2 py-1 text-sm rounded-full'>
+            2
+          </span>{" "}
+          {/* Notification badge */}
         </div>
 
-        {/* Contacts Sidebar on the right */}
-        <div className='w-1/3 bg-gray-100 p-4 border-l border-gray-200'>
-          <h2 className='text-xl font-bold mb-4 text-[#2c6449]'>Messenger</h2>
-          <div className='flex flex-col space-y-4'>
-            {contacts.map((contact) => (
-              <div
-                key={contact.id}
-                onClick={() => setSelectedChat(contact)}
-                className={`flex items-start p-3 rounded-lg cursor-pointer hover:bg-gray-200 ${
-                  selectedChat?.id === contact.id ? "bg-gray-200" : ""
-                }`}
-              >
-                <img
-                  src={contact.avatar}
-                  alt={`${contact.name}'s Avatar`}
-                  className='w-10 h-10 rounded-full mr-3'
-                />
-                <div className='flex-1'>
-                  <h3 className='font-semibold text-[#2c6449]'>
-                    {contact.name}
-                  </h3>
-                  <p className='text-sm text-gray-600'>{contact.lastMessage}</p>
-                </div>
-                <span className='text-xs text-gray-500 ml-2'>
-                  {contact.timestamp}
-                </span>
+        {/* Contacts List */}
+        <div className='flex-1 overflow-y-auto p-4'>
+          {contacts.map((contact) => (
+            <div
+              key={contact.id}
+              onClick={() => setSelectedChat(contact)}
+              className={`flex items-center p-3 rounded-lg cursor-pointer hover:bg-gray-100 ${
+                selectedChat?.id === contact.id ? "bg-gray-200" : ""
+              }`}
+            >
+              <img
+                src={contact.avatar || "/default-avatar.png"} // Default avatar if none
+                alt={`${contact.name}'s Avatar`}
+                className='w-10 h-10 rounded-full mr-3'
+              />
+              <div className='flex-1'>
+                <h3 className='font-semibold'>{contact.name}</h3>
+                <p className='text-sm text-gray-600'>
+                  {contact.lastMessage || "No message yet"}
+                </p>
               </div>
-            ))}
-          </div>
+              <span className='text-xs text-gray-500'>{contact.timestamp}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer (Optional search or close icon) */}
+        <div className='p-4 border-t flex justify-end'>
+          <button className='text-gray-500 hover:text-gray-700'>Close</button>
         </div>
       </div>
     </div>
