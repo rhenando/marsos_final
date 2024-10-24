@@ -1,5 +1,7 @@
 "use client"; // Client-side rendering
 import { useEffect, useState } from "react";
+import { db } from "../../lib/firebase"; // Import Firebase Firestore instance
+import { collection, getDocs } from "firebase/firestore"; // Import Firestore functions
 
 export default function ChatWindow() {
   const [contacts, setContacts] = useState([]);
@@ -7,8 +9,9 @@ export default function ChatWindow() {
   const [chatMessages, setChatMessages] = useState([]);
   const [message, setMessage] = useState(""); // New message state
   const [user, setUser] = useState(null);
+  const [products, setProducts] = useState([]); // State for products
 
-  // Fetch contacts via API
+  // Fetch contacts via API (this can remain the same)
   useEffect(() => {
     const fetchContacts = async () => {
       try {
@@ -24,7 +27,24 @@ export default function ChatWindow() {
     fetchContacts();
   }, []);
 
-  // Fetch messages for selected chat via API
+  // Fetch products from Firebase Firestore
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, "products")); // Fetch products from the 'products' collection
+        const productList = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(), // Get product data (name, image, price, etc.)
+        }));
+        setProducts(productList); // Set product state
+      } catch (error) {
+        console.error("Error fetching products:", error);
+      }
+    };
+    fetchProducts(); // Call the function when component mounts
+  }, []);
+
+  // Fetch messages for selected chat via API (this can remain the same)
   useEffect(() => {
     if (selectedChat) {
       const fetchMessages = async () => {
@@ -42,7 +62,7 @@ export default function ChatWindow() {
     }
   }, [selectedChat]);
 
-  // Send message to the chat via API or Firestore
+  // Send message to the chat via API or Firestore (this can remain the same)
   const sendMessage = async () => {
     if (!message.trim()) return; // Prevent empty messages
 
@@ -113,26 +133,23 @@ export default function ChatWindow() {
           )}
         </div>
 
-        {/* Contacts Sidebar */}
+        {/* Products Sidebar */}
         <div className='w-1/3 bg-gray-100 p-4 border-l border-gray-200'>
-          <h2 className='text-xl font-bold mb-4'>Messenger</h2>
+          <h2 className='text-xl font-bold mb-4'>Products</h2>
           <div className='flex flex-col space-y-4'>
-            {contacts.map((contact) => (
+            {products.map((product) => (
               <div
-                key={contact.id}
-                onClick={() => setSelectedChat(contact)}
-                className={`flex items-start p-3 rounded-lg cursor-pointer hover:bg-gray-200 ${
-                  selectedChat?.id === contact.id ? "bg-gray-200" : ""
-                }`}
+                key={product.id}
+                className='flex items-start p-3 rounded-lg bg-white shadow hover:bg-gray-200'
               >
                 <img
-                  src={contact.avatar}
-                  alt={`${contact.name}'s Avatar`}
-                  className='w-10 h-10 rounded-full mr-3'
+                  src={product.imageUrl} // Assuming the product has an 'imageUrl' field in Firestore
+                  alt={product.name}
+                  className='w-16 h-16 object-cover rounded mr-4'
                 />
                 <div className='flex-1'>
-                  <h3 className='font-semibold'>{contact.name}</h3>
-                  <p className='text-sm text-gray-600'>{contact.lastMessage}</p>
+                  <h3 className='font-semibold'>{product.name}</h3>
+                  <p className='text-gray-600'>SAR {product.price}</p>
                 </div>
               </div>
             ))}
