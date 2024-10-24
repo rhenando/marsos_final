@@ -214,79 +214,7 @@ export default function ProductDetailsPage({ params }) {
                 </p>
               )}
 
-              {/* Color Variations */}
-              {product.colorVariations &&
-                product.colorVariations.length > 0 && (
-                  <div className='mb-4'>
-                    <h4 className='text-lg font-semibold'>Color Variations:</h4>
-                    {product.colorVariations.map((variation, index) =>
-                      variation.color && variation.price ? (
-                        <p key={index} className='text-sm'>
-                          {variation.color}: SAR {variation.price}
-                        </p>
-                      ) : null
-                    )}
-                  </div>
-                )}
-
-              {/* Size Variations */}
-              {product.sizeVariations && product.sizeVariations.length > 0 && (
-                <div className='mb-4'>
-                  <h4 className='text-lg font-semibold'>Size Variations:</h4>
-                  {product.sizeVariations.map((variation, index) =>
-                    variation.size && variation.price ? (
-                      <p key={index} className='text-sm'>
-                        {variation.size}: SAR {variation.price}
-                      </p>
-                    ) : null
-                  )}
-                </div>
-              )}
-
-              {/* Type Variations */}
-              {product.typeVariations && product.typeVariations.length > 0 && (
-                <div className='mb-4'>
-                  <h4 className='text-lg font-semibold'>Type Variations:</h4>
-                  {product.typeVariations.map((variation, index) => (
-                    <p key={index} className='text-sm'>
-                      {variation.type}: SAR {variation.price}
-                    </p>
-                  ))}
-                </div>
-              )}
-
-              {/* Dimensions */}
-              {product.dimensions && (
-                <div className='mb-4'>
-                  <h4 className='text-lg font-semibold'>Dimensions:</h4>
-                  {product.dimensions.height.value && (
-                    <p>
-                      Height: {product.dimensions.height.value}{" "}
-                      {product.dimensions.height.unit}
-                    </p>
-                  )}
-                  {product.dimensions.width.value && (
-                    <p>
-                      Width: {product.dimensions.width.value}{" "}
-                      {product.dimensions.width.unit}
-                    </p>
-                  )}
-                  {product.dimensions.length.value && (
-                    <p>
-                      Length: {product.dimensions.length.value}{" "}
-                      {product.dimensions.length.unit}
-                    </p>
-                  )}
-                  {product.dimensions.weight.value && (
-                    <p>
-                      Weight: {product.dimensions.weight.value}{" "}
-                      {product.dimensions.weight.unit}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Request Quotation and Contact Supplier */}
+              {/* Contact Supplier and Start Order Request */}
               <div className='flex space-x-4'>
                 <button
                   className='bg-[#2c6449] text-white py-2 px-6 rounded'
@@ -294,9 +222,14 @@ export default function ProductDetailsPage({ params }) {
                 >
                   Start order request
                 </button>
-                <button className='bg-transparent border border-gray-600 text-gray-600 py-2 px-6 rounded hover:border-[#2c6449] hover:text-[#2c6449]'>
+                <a
+                  href='/chat' // Link to the chat page
+                  target='_blank' // Opens in a new tab
+                  rel='noopener noreferrer' // Ensures safe external links
+                  className='bg-transparent border border-gray-600 text-gray-600 py-2 px-6 rounded hover:border-[#2c6449] hover:text-[#2c6449]'
+                >
                   Contact supplier
-                </button>
+                </a>
               </div>
             </div>
           </div>
