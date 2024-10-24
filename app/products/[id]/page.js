@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useEffect } from "react";
 import { db } from "../../../lib/firebase"; // Adjust path as needed
 import { doc, getDoc } from "firebase/firestore";
@@ -6,6 +7,7 @@ import jsPDF from "jspdf"; // Import jsPDF for PDF generation
 import autoTable from "jspdf-autotable"; // Import autoTable for tables
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import Preloader from "@/components/Preloader"; // Import Preloader
 
 export default function ProductDetailsPage({ params }) {
   const { id } = params; // Get the product ID from the dynamic route
@@ -13,6 +15,7 @@ export default function ProductDetailsPage({ params }) {
   const [isModalOpen, setIsModalOpen] = useState(false); // For controlling the modal
   const [quantity, setQuantity] = useState(""); // Example input in modal
   const [additionalNotes, setAdditionalNotes] = useState(""); // Another example input
+  const [loading, setLoading] = useState(true); // Add loading state
 
   // Shipping cost is hardcoded for now
   const shippingCost = 0.0;
@@ -31,6 +34,8 @@ export default function ProductDetailsPage({ params }) {
         }
       } catch (error) {
         console.error("Error fetching product details:", error);
+      } finally {
+        setLoading(false); // Stop loading after fetching data
       }
     }
     fetchProduct();
@@ -59,17 +64,6 @@ export default function ProductDetailsPage({ params }) {
 
     return applicablePrice * quantity;
   }
-
-  // Function to convert an image to Base64 format
-  const convertImageToBase64 = async (url) => {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result); // Convert blob to Base64
-      reader.readAsDataURL(blob);
-    });
-  };
 
   // Function to generate a PDF with the order details
   const generatePDF = async (quotationData, subtotal, total) => {
@@ -175,6 +169,11 @@ export default function ProductDetailsPage({ params }) {
   const requestQuotation = () => {
     setIsModalOpen(true); // This opens the modal
   };
+
+  // Show preloader while loading
+  if (loading) {
+    return <Preloader />;
+  }
 
   if (!product) {
     return <div className='text-center'>Loading product details...</div>;
