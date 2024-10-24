@@ -1,6 +1,6 @@
 "use client"; // For client-side rendering
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import logo from "../public/logo-marsos.svg"; // Adjust the path to your logo
@@ -16,6 +16,9 @@ import {
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false); // State to control menu visibility
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false); // State for submenu visibility
+  const [isLoggedIn, setIsLoggedIn] = useState(false); // Simulating user logged-in state
+  const userMenuRef = useRef(null); // Reference for the user menu
 
   useEffect(() => {
     const handleScroll = () => {
@@ -30,15 +33,35 @@ export default function Header() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Close the submenu if clicked outside
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    // Add event listener for clicks outside the menu
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      // Cleanup the event listener on component unmount
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const toggleUserMenu = () => {
+    setIsUserMenuOpen(!isUserMenuOpen); // Toggle user menu on click
+  };
+
   return (
     <>
       {/* Header Section */}
       <header
-        className={`relative transition-all duration-500 ${
+        className={`relative z-50 transition-all duration-500 ${
           isScrolled
             ? "fixed top-0 left-0 w-full z-50 bg-[#2c6449] text-white"
             : "bg-white text-gray-800"
         }`}
+        style={{ zIndex: 1000 }} // Ensure header has higher z-index
       >
         <div className='absolute inset-0'></div>
 
@@ -77,11 +100,56 @@ export default function Header() {
             }`}
           >
             {/* Icons */}
-            <div className='flex justify-center md:justify-start space-x-6'>
-              <FaCommentDots className='w-7 h-7 hover:text-[#2c6449] cursor-pointer' />
-              <FaClipboardList className='w-7 h-7 hover:text-[#2c6449] cursor-pointer' />
+            <div className='flex justify-center md:justify-start space-x-6 relative'>
+              {/* User Icon */}
+              <FaUser
+                className='w-7 h-7 hover:text-[#2c6449] cursor-pointer'
+                onClick={toggleUserMenu}
+              />
+
+              {/* Submenu Container */}
+              {isUserMenuOpen && (
+                <div
+                  ref={userMenuRef}
+                  className='absolute top-full mt-2 bg-white text-gray-800 p-4 shadow-lg rounded-lg z-50 w-64 max-h-[300px] overflow-y-auto'
+                  style={{ zIndex: 1001 }} // Ensure submenu is above everything
+                >
+                  <ul className='text-base space-y-4'>
+                    <li>
+                      <Link href='/my-marsos'>My Marsos</Link>
+                    </li>
+                    <li>
+                      <Link href='/orders'>Orders</Link>
+                    </li>
+                    <li>
+                      <Link href='/messages'>Messages</Link>
+                    </li>
+                    <li>
+                      <Link href='/rfqs'>RFQs</Link>
+                    </li>
+                    <li>
+                      <Link href='/favorites'>Favorites</Link>
+                    </li>
+                    <li>
+                      <Link href='/account'>Account</Link>
+                    </li>
+                    {isLoggedIn ? (
+                      <li>
+                        <Link href='/sign-out'>Sign Out</Link>
+                      </li>
+                    ) : (
+                      <li>
+                        <Link href='/login'>Log In</Link>
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              )}
+
+              {/* Other Icons */}
               <FaShoppingCart className='w-7 h-7 hover:text-[#2c6449] cursor-pointer' />
-              <FaUser className='w-7 h-7 hover:text-[#2c6449] cursor-pointer' />
+              <FaClipboardList className='w-7 h-7 hover:text-[#2c6449] cursor-pointer' />
+              <FaCommentDots className='w-7 h-7 hover:text-[#2c6449] cursor-pointer' />
             </div>
 
             {/* Delivery Info */}
