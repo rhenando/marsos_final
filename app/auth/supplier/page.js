@@ -1,11 +1,10 @@
 "use client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { db, storage } from "../../../lib/firebase"; // Import Firestore and Storage from firebase.js
-import { collection, addDoc } from "firebase/firestore"; // For Firestore database
-import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage"; // For Firebase storage
-import Image from "next/image";
-import authLogo from "../../../public/logo.svg";
+import { db, storage } from "../../../lib/firebase";
+import { collection, addDoc } from "firebase/firestore";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 
 export default function SupplierQuestionnaire() {
   const router = useRouter();
@@ -21,76 +20,122 @@ export default function SupplierQuestionnaire() {
     otherCitiesServed: "",
     deliveryOption: "own",
   });
-  const [crLicenseFile, setCrLicenseFile] = useState(null); // For handling CR license file
-  const [uploading, setUploading] = useState(false); // For showing upload progress
+  const [otp, setOtp] = useState(""); // For OTP input
+  const [otpSent, setOtpSent] = useState(false); // Track OTP sent status
+  const [otpVerified, setOtpVerified] = useState(false); // Track if OTP is verified
+  const [crLicenseFile, setCrLicenseFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
 
-  // Handle form field changes
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Handle CR license file change
   const handleFileChange = (e) => {
     setCrLicenseFile(e.target.files[0]);
   };
 
-  // Handle form submission
-  const handleSubmit = async () => {
-    setUploading(true);
-
+  // Send OTP by calling the server-side API route
+  const handleSendOTP = async () => {
     try {
-      let crLicenseURL = null;
-
-      // Upload CR license file to Firebase Storage if a file is selected
-      if (crLicenseFile) {
-        const storageRef = ref(storage, `cr-licenses/${crLicenseFile.name}`);
-        const uploadTask = uploadBytesResumable(storageRef, crLicenseFile);
-
-        // Wait for file upload to complete
-        await new Promise((resolve, reject) => {
-          uploadTask.on(
-            "state_changed",
-            (snapshot) => {
-              // Progress logic here if needed
-            },
-            (error) => {
-              console.error("File upload error:", error);
-              reject(error);
-            },
-            async () => {
-              crLicenseURL = await getDownloadURL(uploadTask.snapshot.ref);
-              resolve();
-            }
-          );
-        });
-      }
-
-      // Save form data to Firestore
-      const supplierRef = collection(db, "suppliers"); // 'suppliers' collection in Firestore
-      await addDoc(supplierRef, {
-        ...formData,
-        crLicenseURL, // Add the CR license file URL if it exists
+      const response = await fetch("/api/sendOtp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ phoneNumber: formData.phoneNumber }),
       });
 
-      setUploading(false);
-
-      // Redirect to supplier dashboard after successful registration
-      router.push("/dashboard/supplier");
+      const result = await response.json();
+      if (result.success) {
+        setOtpSent(true); // OTP was successfully sent
+        alert("OTP sent! Please enter the code to continue.");
+      } else {
+        alert("Failed to send OTP. Please try again.");
+      }
     } catch (error) {
-      console.error("Error registering supplier:", error);
-      setUploading(false);
+      console.error("Error sending OTP:", error);
+      alert("Failed to send OTP. Please try again.");
+    }
+  };
+
+  // Verify OTP by calling the server-side API route
+  const handleVerifyOTP = async () => {
+    try {
+      const response = await fetch("/api/verifyOtp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          phoneNumber: formData.phoneNumber,
+          otpCode: otp,
+        }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setOtpVerified(true); // OTP successfully verified
+        alert("OTP verified! Proceeding with registration.");
+      } else {
+        alert("Invalid OTP. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error verifying OTP:", error);
+      alert("Failed to verify OTP. Please try again.");
+    }
+  };
+
+  const handleSubmit = async () => {
+    // If OTP hasn't been sent yet, send it and wait for user input
+    if (!otpSent) {
+      await handleSendOTP(); // Send OTP on the first "Continue" click
+      return;
+    }
+
+    // If OTP is sent but not yet verified, ask for OTP input
+    if (otpSent && !otpVerified) {
+      await handleVerifyOTP(); // Verify OTP when user clicks continue after entering OTP
+      return;
+    }
+
+    // Once OTP is verified, proceed with registration
+    if (otpVerified) {
+      setUploading(true);
+      try {
+        let crLicenseURL = null;
+        if (crLicenseFile) {
+          const storageRef = ref(storage, `cr-licenses/${crLicenseFile.name}`);
+          const uploadTask = uploadBytesResumable(storageRef, crLicenseFile);
+
+          await new Promise((resolve, reject) => {
+            uploadTask.on("state_changed", null, reject, async () => {
+              crLicenseURL = await getDownloadURL(uploadTask.snapshot.ref);
+              resolve();
+            });
+          });
+        }
+
+        // Add the role assignment when saving the user data in Firestore
+        const supplierRef = collection(db, "suppliers");
+        await addDoc(supplierRef, {
+          ...formData,
+          crLicenseURL,
+          otpVerified: true, // Mark phone as verified
+          role: "supplier", // Assign the supplier role
+        });
+
+        setUploading(false);
+        router.push("/dashboard/supplier");
+      } catch (error) {
+        console.error("Error registering supplier:", error);
+        setUploading(false);
+      }
     }
   };
 
   return (
     <div className='flex flex-col items-center justify-center min-h-screen bg-gray-50'>
       <div className='w-full max-w-md p-8 bg-white rounded-lg shadow-lg'>
-        {/* Logo */}
-        <div className='flex justify-center mb-8'>
-          <Image src={authLogo} alt='Logo' className='w-28 h-28' />
-        </div>
-
-        {/* Form Title */}
         <h1 className='text-2xl text-center text-[#2c6449] font-semibold mb-4'>
           Supplier Registration
         </h1>
@@ -191,6 +236,7 @@ export default function SupplierQuestionnaire() {
           className='block w-full p-2 h-10 border border-gray-300 rounded-md mb-4 focus:outline-none focus:ring-2 focus:ring-[#2c6449] focus:border-transparent'
           required
         />
+
         <label className='block mb-2 text-[#2c6449] font-medium'>City *</label>
         <input
           type='text'
@@ -201,6 +247,7 @@ export default function SupplierQuestionnaire() {
           className='block w-full p-2 h-10 border border-gray-300 rounded-md mb-4 focus:outline-none focus:ring-2 focus:ring-[#2c6449] focus:border-transparent'
           required
         />
+
         <label className='block mb-2 text-[#2c6449] font-medium'>
           Region *
         </label>
@@ -258,13 +305,35 @@ export default function SupplierQuestionnaire() {
           </div>
         </div>
 
+        {/* OTP input shown after OTP is sent */}
+        {otpSent && !otpVerified && (
+          <div className='mb-4'>
+            <label className='block mb-2 text-[#2c6449] font-medium'>
+              Enter OTP
+            </label>
+            <input
+              type='text'
+              name='otp'
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+              placeholder='Enter the OTP sent to your phone'
+              className='block w-full p-2 border border-gray-300 rounded-md'
+              required
+            />
+          </div>
+        )}
+
         {/* Submit button */}
         <button
           onClick={handleSubmit}
           className='w-full py-3 bg-[#2c6449] text-white rounded-md hover:bg-[#1d4d36] transition-all ease-in-out duration-200 disabled:opacity-50'
           disabled={uploading}
         >
-          {uploading ? "Registering..." : "Continue"}
+          {uploading
+            ? "Registering..."
+            : otpSent && !otpVerified
+            ? "Verify OTP"
+            : "Continue"}
         </button>
       </div>
     </div>

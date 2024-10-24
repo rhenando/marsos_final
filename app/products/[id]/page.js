@@ -7,7 +7,6 @@ import autoTable from "jspdf-autotable"; // Import autoTable for tables
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Preloader from "@/components/Preloader"; // Import Preloader component
-import { FaComments, FaTimes } from "react-icons/fa"; // Import icons for chat button and close button
 
 export default function ProductDetailsPage({ params }) {
   const { id } = params; // Get the product ID from the dynamic route
@@ -16,15 +15,9 @@ export default function ProductDetailsPage({ params }) {
   const [quantity, setQuantity] = useState(""); // Example input in modal
   const [additionalNotes, setAdditionalNotes] = useState(""); // Another example input
   const [loading, setLoading] = useState(true); // Add loading state
-  const [isChatOpen, setIsChatOpen] = useState(false); // Control chat window visibility
 
   // Shipping cost is hardcoded for now
   const shippingCost = 0.0;
-
-  // Toggle chat window visibility
-  const toggleChatWindow = () => {
-    setIsChatOpen(!isChatOpen);
-  };
 
   // Fetch the product from Firestore
   useEffect(() => {
@@ -47,8 +40,138 @@ export default function ProductDetailsPage({ params }) {
     fetchProduct();
   }, [id]);
 
-  // Function to handle quotation request
-  const requestQuotation = () => {
+  // Function to calculate the subtotal based on quantity and price ranges
+  function calculateSubtotal(quantity, priceRanges) {
+    if (!quantity || !priceRanges || priceRanges.length === 0) {
+      return 0;
+    }
+
+    let applicablePrice = 0;
+
+    // Loop through the price ranges to find the matching price for the entered quantity
+    for (const range of priceRanges) {
+      if (quantity >= range.minQuantity && quantity <= range.maxQuantity) {
+        applicablePrice = parseFloat(range.price);
+        break;
+      }
+    }
+
+    // If no specific range is found, apply the highest price
+    if (applicablePrice === 0) {
+      applicablePrice = parseFloat(priceRanges[priceRanges.length - 1].price);
+    }
+
+    return applicablePrice * quantity;
+  }
+
+  // Function to convert an image to Base64 format
+  const convertImageToBase64 = async (url) => {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result); // Convert blob to Base64
+      reader.readAsDataURL(blob);
+    });
+  };
+
+  // Function to generate a PDF with the order details and display it in the browser
+  const generatePDF = async (quotationData, subtotal, total) => {
+    const doc = new jsPDF();
+
+    // Load the logo image (adjust path to your logo)
+    const logoUrl = "/logo-white.png"; // Update with the correct logo path
+    const logoImg = await convertImageToBase64(logoUrl);
+
+    // Add the logo to the PDF
+    doc.addImage(logoImg, "PNG", 10, 10, 50, 20); // Adjust position and size
+
+    // Title of the PDF
+    doc.setFontSize(20);
+    doc.text("Quotation", 105, 40, null, null, "center"); // Title centered
+
+    // Company Info (can be updated as needed)
+    doc.setFontSize(12);
+    doc.text("Marsos Platform", 105, 50, null, null, "center"); // English company name
+
+    // Product Information
+    doc.setFontSize(10);
+    doc.text(`Product Name: ${quotationData.productName}`, 10, 70);
+    doc.text(`Quantity: ${quotationData.quantity} Piece/s`, 10, 80);
+
+    // Table for order details
+    const tableHead = [
+      [
+        "No",
+        "Remarks",
+        "Product Details 1",
+        "Product Details 2",
+        "Description",
+        "Price (SAR)",
+      ],
+    ];
+
+    // Dynamically create rows based on buyer's order
+    const tableBody = quotationData.items.map((item, index) => [
+      index + 1, // No
+      item.remarks || "-", // Remarks
+      item.details1 || "-", // Product Details 1
+      item.details2 || "-", // Product Details 2
+      item.description || "-", // Description
+      item.price ? `SAR ${item.price}` : "-", // Price
+    ]);
+
+    // Generate the table with 6 columns and dynamic rows
+    autoTable(doc, {
+      startY: 90,
+      head: tableHead,
+      body: tableBody,
+    });
+
+    // Add Subtotal, Shipping, and Total in the summary section
+    const finalY = doc.lastAutoTable.finalY + 10; // Get where the table ends
+
+    doc.setFontSize(10);
+    doc.text(`Subtotal: SAR ${subtotal}`, 10, finalY);
+    doc.text(`Shipping: SAR ${shippingCost.toFixed(2)}`, 10, finalY + 10);
+    doc.text(`Total: SAR ${total}`, 10, finalY + 20);
+
+    // Additional notes if any
+    if (quotationData.additionalNotes) {
+      doc.text(
+        `Additional Notes: ${quotationData.additionalNotes}`,
+        10,
+        finalY + 30
+      );
+    }
+
+    // Add Terms and Conditions Placeholder
+    doc.setFontSize(10);
+    const termsStartY = finalY + 50; // Adjust this value if needed
+    doc.text("Terms and Conditions:", 10, termsStartY);
+
+    const terms = [
+      "1. The product is provided as described.",
+      "2. Payment must be made within 30 days.",
+      "3. Delivery time is estimated and subject to change.",
+      "4. Returns are accepted within 14 days of receipt.",
+      "5. Any disputes shall be governed by the laws of the local jurisdiction.",
+    ];
+
+    terms.forEach((term, index) => {
+      doc.text(term, 10, termsStartY + (index + 1) * 10);
+    });
+
+    // Get the PDF as a Blob
+    const pdfBlob = doc.output("blob");
+
+    // Create a URL from the Blob and open in a new tab
+    const blobUrl = URL.createObjectURL(pdfBlob);
+    window.open(blobUrl); // Opens the PDF in a new browser tab
+  };
+
+  // Handle the modal submission logic here
+  const handleSubmitRequest = () => {
     const quotationData = {
       productName: product.productName,
       productId: id,
@@ -71,14 +194,29 @@ export default function ProductDetailsPage({ params }) {
           description: "Description of the second product",
           price: 200, // Example price
         },
+        // Add more items here based on the buyer's order
       ],
     };
 
     console.log("Submitting request with data: ", quotationData);
 
+    // Calculate subtotal and total
+    const subtotal = calculateSubtotal(quantity, product.priceRanges).toFixed(
+      2
+    );
+    const total = (parseFloat(subtotal) + shippingCost).toFixed(2);
+
+    // Generate the PDF
+    generatePDF(quotationData, subtotal, total);
+
     // Close the modal after submission
     setIsModalOpen(false);
-    alert("Request submitted!");
+    alert("Request submitted and PDF generated!");
+  };
+
+  // This is the function that opens the modal (previous error was here)
+  const requestQuotation = () => {
+    setIsModalOpen(true); // This opens the modal
   };
 
   // Show preloader while loading
@@ -163,7 +301,7 @@ export default function ProductDetailsPage({ params }) {
               <div className='flex space-x-4'>
                 <button
                   className='bg-[#2c6449] text-white py-2 px-6 rounded'
-                  onClick={requestQuotation}
+                  onClick={requestQuotation} // Ensure this function is available
                 >
                   Start order request
                 </button>
@@ -178,68 +316,102 @@ export default function ProductDetailsPage({ params }) {
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Floating Chat Button */}
-      <button
-        onClick={toggleChatWindow}
-        className='fixed bottom-5 right-5 bg-[#2c6449] text-white p-4 rounded-full shadow-lg hover:bg-green-600 z-50'
-      >
-        {isChatOpen ? <FaTimes /> : <FaComments />}
-      </button>
+          {/* Modal for requesting quotation */}
+          {isModalOpen && (
+            <div className='fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50'>
+              <div className='bg-white p-6 rounded-lg shadow-lg w-full max-w-lg'>
+                <div className='flex justify-between items-center mb-4'>
+                  <h2 className='text-xl font-semibold'>Select Quantity</h2>
+                  <button
+                    className='text-gray-500 hover:text-gray-700'
+                    onClick={() => setIsModalOpen(false)}
+                  >
+                    X {/* Close button */}
+                  </button>
+                </div>
 
-      {/* Chat Window */}
-      {isChatOpen && (
-        <div className='fixed bottom-20 right-5 bg-white w-100 h-auto shadow-lg rounded-lg overflow-hidden z-50'>
-          <div className='bg-[#2c6449] text-white flex items-center justify-between px-4 py-2'>
-            <h2 className='text-lg font-semibold'>Chat</h2>
-            <button onClick={toggleChatWindow}>
-              <FaTimes />
-            </button>
-          </div>
+                {/* Price Ranges Section */}
+                <div className='mb-4'>
+                  <h3 className='font-semibold mb-2'>Price before shipping</h3>
+                  <div className='grid grid-cols-2 gap-4'>
+                    {product.priceRanges &&
+                      product.priceRanges.map((range, idx) => (
+                        <div key={idx} className='text-sm font-semibold'>
+                          {range.minQuantity} - {range.maxQuantity} Piece/s: SAR{" "}
+                          {range.price}
+                        </div>
+                      ))}
+                  </div>
+                </div>
 
-          <div className='p-4 flex flex-col justify-between h-full'>
-            {/* Display chat messages here */}
-            <div className='flex flex-col w-full h-full'>
-              <h2 className='text-xl font-semibold'>Chat with Supplier</h2>
-              {/* Chat Messages */}
-              <div className='overflow-y-auto h-48 mb-4'>
-                {/* Chat messages would be displayed here */}
-                <p className='text-gray-600'>This is a sample message.</p>
-              </div>
+                {/* Quantity Section */}
+                <div className='mb-4'>
+                  <h3 className='font-semibold mb-2'>Enter Quantity</h3>
+                  <div className='flex items-center justify-between space-x-2'>
+                    <input
+                      type='number'
+                      value={quantity}
+                      onChange={(e) => setQuantity(e.target.value)}
+                      placeholder='Enter quantity'
+                      className='w-full border rounded p-2'
+                    />
+                  </div>
+                </div>
 
-              {/* Message input and send button */}
-              <div className='flex items-center w-full mt-auto border-t border-gray-200 p-2'>
-                <input
-                  type='text'
-                  placeholder='Type a message...'
-                  className='flex-1 border p-2 rounded-lg'
-                />
-                <button className='ml-4 bg-[#2c6449] text-white p-2 rounded-lg'>
-                  Send
+                {/* Shipping Section */}
+                <div className='mb-4'>
+                  <h3 className='font-semibold mb-2'>Shipping</h3>
+                  <p className='text-sm text-gray-500'>
+                    Shipping solutions for the selected quantity are currently
+                    unavailable
+                  </p>
+                </div>
+
+                {/* Summary Section */}
+                <div className='mb-4 border-t pt-4'>
+                  {/* Subtotal Calculation */}
+                  <div className='flex justify-between text-sm mb-2'>
+                    <span>Item subtotal ({quantity || 0} Piece/s):</span>
+                    <span>
+                      SAR{" "}
+                      {calculateSubtotal(quantity, product.priceRanges).toFixed(
+                        2
+                      )}
+                    </span>
+                  </div>
+
+                  {/* Shipping Total */}
+                  <div className='flex justify-between text-sm mb-2'>
+                    <span>Shipping total:</span>
+                    <span>SAR {shippingCost.toFixed(2)}</span>
+                  </div>
+
+                  {/* Total Calculation */}
+                  <div className='flex justify-between text-sm font-semibold'>
+                    <span>Total:</span>
+                    <span>
+                      SAR{" "}
+                      {(
+                        calculateSubtotal(quantity, product.priceRanges) +
+                        shippingCost
+                      ).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Complete Order Button */}
+                <button
+                  className='bg-[#2c6449] text-white py-2 px-6 rounded w-full'
+                  onClick={handleSubmitRequest} // Generates PDF
+                >
+                  Complete order request
                 </button>
               </div>
             </div>
-          </div>
-
-          {/* Product Information */}
-          <div className='border-t p-4'>
-            {product && (
-              <div className='flex flex-col items-start space-y-4'>
-                <img
-                  src={product.images && product.images[0].thumbnail}
-                  alt={product.productName}
-                  className='w-32 h-32 object-cover rounded-lg'
-                />
-                <h3 className='text-lg font-semibold'>{product.productName}</h3>
-                <p className='text-gray-700'>SAR {product.price}</p>
-              </div>
-            )}
-          </div>
+          )}
         </div>
-      )}
-
+      </div>
       <Footer />
     </>
   );

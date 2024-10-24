@@ -1,10 +1,11 @@
 "use client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { db } from "../../../lib/firebase"; // Import Firestore from firebase.js
-import { collection, addDoc } from "firebase/firestore"; // For Firestore database
-import authLogo from "../../../public/logo.svg";
+import { db } from "../../../lib/firebase";
+import { collection, addDoc } from "firebase/firestore";
 import Image from "next/image";
+import authLogo from "../../../public/logo.svg"; // Ensure this logo path is correct
 
 export default function BuyerQuestionnaire() {
   const router = useRouter();
@@ -13,6 +14,9 @@ export default function BuyerQuestionnaire() {
     name: "",
     email: "", // Email is optional
   });
+  const [otp, setOtp] = useState(""); // For OTP input
+  const [otpSent, setOtpSent] = useState(false); // Track OTP sent status
+  const [otpVerified, setOtpVerified] = useState(false); // Track if OTP is verified
   const [uploading, setUploading] = useState(false); // For showing submission progress
 
   // Handle form field changes
@@ -20,22 +24,91 @@ export default function BuyerQuestionnaire() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  // Send OTP by calling the server-side API route
+  const handleSendOTP = async () => {
+    try {
+      const response = await fetch("/api/sendOtp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ phoneNumber: formData.phoneNumber }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setOtpSent(true); // OTP was successfully sent
+        alert("OTP sent! Please enter the code to continue.");
+      } else {
+        alert("Failed to send OTP. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error sending OTP:", error);
+      alert("Failed to send OTP. Please try again.");
+    }
+  };
+
+  // Verify OTP by calling the server-side API route
+  const handleVerifyOTP = async () => {
+    try {
+      const response = await fetch("/api/verifyOtp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          phoneNumber: formData.phoneNumber,
+          otpCode: otp,
+        }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setOtpVerified(true); // OTP successfully verified
+        alert("OTP verified! Proceeding with registration.");
+      } else {
+        alert("Invalid OTP. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error verifying OTP:", error);
+      alert("Failed to verify OTP. Please try again.");
+    }
+  };
+
   // Handle form submission
   const handleSubmit = async () => {
-    setUploading(true);
+    // If OTP hasn't been sent yet, send it and wait for user input
+    if (!otpSent) {
+      await handleSendOTP(); // Send OTP on the first "Continue" click
+      return;
+    }
 
-    try {
-      // Save form data to Firestore
-      const buyerRef = collection(db, "buyers"); // 'buyers' collection in Firestore
-      await addDoc(buyerRef, formData);
+    // If OTP is sent but not yet verified, ask for OTP input
+    if (otpSent && !otpVerified) {
+      await handleVerifyOTP(); // Verify OTP when user clicks continue after entering OTP
+      return;
+    }
 
-      setUploading(false);
+    // Once OTP is verified, proceed with registration
+    if (otpVerified) {
+      setUploading(true);
+      try {
+        // Save form data to Firestore with the "buyer" role
+        const buyerRef = collection(db, "buyers");
+        await addDoc(buyerRef, {
+          ...formData,
+          otpVerified: true, // Mark phone as verified
+          role: "buyer", // Assign the buyer role
+        });
 
-      // Redirect to buyer dashboard after successful registration
-      router.push("/dashboard/buyer");
-    } catch (error) {
-      console.error("Error registering buyer:", error);
-      setUploading(false);
+        setUploading(false);
+
+        // Redirect to buyer dashboard after successful registration
+        router.push("/dashboard/buyer");
+      } catch (error) {
+        console.error("Error registering buyer:", error);
+        setUploading(false);
+      }
     }
   };
 
@@ -44,7 +117,6 @@ export default function BuyerQuestionnaire() {
       <div className='w-full max-w-md p-8 bg-white rounded-lg shadow-lg'>
         {/* Logo */}
         <div className='flex justify-center mb-8'>
-          {/* Replace this with the logo image */}
           <Image src={authLogo} alt='Logo' className='w-28 h-28' />
         </div>
 
@@ -100,13 +172,35 @@ export default function BuyerQuestionnaire() {
           className='block w-full p-2 h-10 border border-gray-300 rounded-md mb-4 focus:outline-none focus:ring-2 focus:ring-[#2c6449] focus:border-transparent'
         />
 
+        {/* OTP input shown after OTP is sent */}
+        {otpSent && !otpVerified && (
+          <div className='mb-4'>
+            <label className='block mb-2 text-[#2c6449] font-medium'>
+              Enter OTP
+            </label>
+            <input
+              type='text'
+              name='otp'
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+              placeholder='Enter the OTP sent to your phone'
+              className='block w-full p-2 border border-gray-300 rounded-md'
+              required
+            />
+          </div>
+        )}
+
         {/* Submit button */}
         <button
           onClick={handleSubmit}
           className='w-full py-3 bg-[#2c6449] text-white rounded-md hover:bg-[#1d4d36] transition-all ease-in-out duration-200 disabled:opacity-50'
           disabled={uploading}
         >
-          {uploading ? "Registering..." : "Continue"}
+          {uploading
+            ? "Registering..."
+            : otpSent && !otpVerified
+            ? "Verify OTP"
+            : "Continue"}
         </button>
 
         {/* Optional footer link for existing users */}
