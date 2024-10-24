@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useEffect } from "react";
 import { db } from "../../../lib/firebase"; // Adjust path as needed
 import { doc, getDoc } from "firebase/firestore";
@@ -7,7 +6,7 @@ import jsPDF from "jspdf"; // Import jsPDF for PDF generation
 import autoTable from "jspdf-autotable"; // Import autoTable for tables
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import Preloader from "@/components/Preloader"; // Import Preloader
+import Preloader from "@/components/Preloader"; // Import Preloader component
 
 export default function ProductDetailsPage({ params }) {
   const { id } = params; // Get the product ID from the dynamic route
@@ -65,12 +64,23 @@ export default function ProductDetailsPage({ params }) {
     return applicablePrice * quantity;
   }
 
-  // Function to generate a PDF with the order details
+  // Function to convert an image to Base64 format
+  const convertImageToBase64 = async (url) => {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result); // Convert blob to Base64
+      reader.readAsDataURL(blob);
+    });
+  };
+
+  // Function to generate a PDF with the order details and display it in the browser
   const generatePDF = async (quotationData, subtotal, total) => {
     const doc = new jsPDF();
 
     // Load the logo image (adjust path to your logo)
-    const logoUrl = "/logo.png"; // Update with the correct logo path
+    const logoUrl = "/logo-white.png"; // Update with the correct logo path
     const logoImg = await convertImageToBase64(logoUrl);
 
     // Add the logo to the PDF
@@ -89,15 +99,33 @@ export default function ProductDetailsPage({ params }) {
     doc.text(`Product Name: ${quotationData.productName}`, 10, 70);
     doc.text(`Quantity: ${quotationData.quantity} Piece/s`, 10, 80);
 
-    // Example table for price ranges (using autoTable for better formatting)
+    // Table for order details
+    const tableHead = [
+      [
+        "No",
+        "Remarks",
+        "Product Details 1",
+        "Product Details 2",
+        "Description",
+        "Price (SAR)",
+      ],
+    ];
+
+    // Dynamically create rows based on buyer's order
+    const tableBody = quotationData.items.map((item, index) => [
+      index + 1, // No
+      item.remarks || "-", // Remarks
+      item.details1 || "-", // Product Details 1
+      item.details2 || "-", // Product Details 2
+      item.description || "-", // Description
+      item.price ? `SAR ${item.price}` : "-", // Price
+    ]);
+
+    // Generate the table with 6 columns and dynamic rows
     autoTable(doc, {
       startY: 90,
-      head: [["Min Quantity", "Max Quantity", "Price (SAR)"]],
-      body: quotationData.priceRanges.map((range) => [
-        range.minQuantity,
-        range.maxQuantity,
-        range.price,
-      ]),
+      head: tableHead,
+      body: tableBody,
     });
 
     // Add Subtotal, Shipping, and Total in the summary section
@@ -134,8 +162,12 @@ export default function ProductDetailsPage({ params }) {
       doc.text(term, 10, termsStartY + (index + 1) * 10);
     });
 
-    // Save the PDF
-    doc.save(`${quotationData.productName}_quotation.pdf`);
+    // Get the PDF as a Blob
+    const pdfBlob = doc.output("blob");
+
+    // Create a URL from the Blob and open in a new tab
+    const blobUrl = URL.createObjectURL(pdfBlob);
+    window.open(blobUrl); // Opens the PDF in a new browser tab
   };
 
   // Handle the modal submission logic here
@@ -147,6 +179,23 @@ export default function ProductDetailsPage({ params }) {
       quantity: quantity,
       additionalNotes: additionalNotes,
       priceRanges: product.priceRanges, // Include price ranges in the quotation data
+      items: [
+        {
+          remarks: "First item remarks",
+          details1: "Detail 1 of item",
+          details2: "Detail 2 of item",
+          description: "Description of the product",
+          price: 100, // Example price
+        },
+        {
+          remarks: "Second item remarks",
+          details1: "Detail 1 of second item",
+          details2: "Detail 2 of second item",
+          description: "Description of the second product",
+          price: 200, // Example price
+        },
+        // Add more items here based on the buyer's order
+      ],
     };
 
     console.log("Submitting request with data: ", quotationData);
