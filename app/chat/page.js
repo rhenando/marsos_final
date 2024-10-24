@@ -1,5 +1,5 @@
-// Import necessary Firebase libraries and Next.js components
-"use client";
+"use client"; // For client-side rendering
+
 import { useEffect, useState } from "react";
 import {
   getFirestore,
@@ -11,12 +11,9 @@ import {
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
 import Image from "next/image";
-import firebaseApp from "../../lib/firebase"; // Import your Firebase config
+import { firebaseApp, db, auth, storage } from "../../lib/firebase"; // Import named exports
 
-// Initialize Firebase services
-const db = getFirestore(firebaseApp);
-const storage = getStorage(firebaseApp);
-const auth = getAuth(firebaseApp);
+// No need to initialize Firebase services again since they're already initialized in firebase.js
 
 export default function ChatWindow() {
   const [contacts, setContacts] = useState([]);
