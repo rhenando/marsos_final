@@ -20,9 +20,9 @@ export default function SupplierQuestionnaire() {
     otherCitiesServed: "",
     deliveryOption: "own",
   });
-  const [otp, setOtp] = useState(""); // For OTP input
-  const [otpSent, setOtpSent] = useState(false); // Track OTP sent status
-  const [otpVerified, setOtpVerified] = useState(false); // Track if OTP is verified
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
   const [crLicenseFile, setCrLicenseFile] = useState(null);
   const [uploading, setUploading] = useState(false);
 
@@ -34,20 +34,23 @@ export default function SupplierQuestionnaire() {
     setCrLicenseFile(e.target.files[0]);
   };
 
-  // Send OTP by calling the server-side API route
   const handleSendOTP = async () => {
     try {
+      const formattedPhoneNumber = formData.phoneNumber.startsWith("+966")
+        ? formData.phoneNumber
+        : `+966${formData.phoneNumber}`;
+
       const response = await fetch("/api/sendOtp", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ phoneNumber: formData.phoneNumber }),
+        body: JSON.stringify({ phoneNumber: formattedPhoneNumber }),
       });
 
       const result = await response.json();
       if (result.success) {
-        setOtpSent(true); // OTP was successfully sent
+        setOtpSent(true);
         alert("OTP sent! Please enter the code to continue.");
       } else {
         alert("Failed to send OTP. Please try again.");
@@ -58,23 +61,26 @@ export default function SupplierQuestionnaire() {
     }
   };
 
-  // Verify OTP by calling the server-side API route
   const handleVerifyOTP = async () => {
     try {
+      const formattedPhoneNumber = formData.phoneNumber.startsWith("+966")
+        ? formData.phoneNumber
+        : `+966${formData.phoneNumber}`;
+
       const response = await fetch("/api/verifyOtp", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          phoneNumber: formData.phoneNumber,
+          phoneNumber: formattedPhoneNumber,
           otpCode: otp,
         }),
       });
 
       const result = await response.json();
       if (result.success) {
-        setOtpVerified(true); // OTP successfully verified
+        setOtpVerified(true);
         alert("OTP verified! Proceeding with registration.");
       } else {
         alert("Invalid OTP. Please try again.");
@@ -86,19 +92,16 @@ export default function SupplierQuestionnaire() {
   };
 
   const handleSubmit = async () => {
-    // If OTP hasn't been sent yet, send it and wait for user input
     if (!otpSent) {
-      await handleSendOTP(); // Send OTP on the first "Continue" click
+      await handleSendOTP();
       return;
     }
 
-    // If OTP is sent but not yet verified, ask for OTP input
     if (otpSent && !otpVerified) {
-      await handleVerifyOTP(); // Verify OTP when user clicks continue after entering OTP
+      await handleVerifyOTP();
       return;
     }
 
-    // Once OTP is verified, proceed with registration
     if (otpVerified) {
       setUploading(true);
       try {
@@ -115,13 +118,15 @@ export default function SupplierQuestionnaire() {
           });
         }
 
-        // Add the role assignment when saving the user data in Firestore
         const supplierRef = collection(db, "suppliers");
         await addDoc(supplierRef, {
           ...formData,
+          phoneNumber: formData.phoneNumber.startsWith("+966")
+            ? formData.phoneNumber
+            : `+966${formData.phoneNumber}`,
           crLicenseURL,
-          otpVerified: true, // Mark phone as verified
-          role: "supplier", // Assign the supplier role
+          otpVerified: true,
+          role: "supplier",
         });
 
         setUploading(false);
@@ -140,7 +145,6 @@ export default function SupplierQuestionnaire() {
           Supplier Registration
         </h1>
 
-        {/* Phone Number (required) */}
         <label className='block mb-2 text-[#2c6449] font-medium'>
           Phone Number *
         </label>
@@ -159,7 +163,6 @@ export default function SupplierQuestionnaire() {
           />
         </div>
 
-        {/* Name (required) */}
         <label className='block mb-2 text-[#2c6449] font-medium'>Name *</label>
         <input
           type='text'
@@ -171,7 +174,6 @@ export default function SupplierQuestionnaire() {
           required
         />
 
-        {/* Email (optional) */}
         <label className='block mb-2 text-[#2c6449] font-medium'>
           Email (optional)
         </label>
@@ -184,7 +186,6 @@ export default function SupplierQuestionnaire() {
           className='block w-full p-2 h-10 border border-gray-300 rounded-md mb-4 focus:outline-none focus:ring-2 focus:ring-[#2c6449] focus:border-transparent'
         />
 
-        {/* Company Name (required) */}
         <label className='block mb-2 text-[#2c6449] font-medium'>
           Company Name *
         </label>
@@ -198,7 +199,6 @@ export default function SupplierQuestionnaire() {
           required
         />
 
-        {/* CR Number (required) */}
         <label className='block mb-2 text-[#2c6449] font-medium'>
           CR Number *
         </label>
@@ -212,7 +212,6 @@ export default function SupplierQuestionnaire() {
           required
         />
 
-        {/* File upload for CR license */}
         <label className='block mb-2 text-[#2c6449] font-medium'>
           CR License (optional)
         </label>
@@ -223,7 +222,6 @@ export default function SupplierQuestionnaire() {
           className='block w-full p-2 border border-gray-300 rounded-md mb-4 focus:outline-none'
         />
 
-        {/* Location, City, Region */}
         <label className='block mb-2 text-[#2c6449] font-medium'>
           Location *
         </label>
@@ -261,7 +259,6 @@ export default function SupplierQuestionnaire() {
           required
         />
 
-        {/* Other Cities Served */}
         <label className='block mb-2 text-[#2c6449] font-medium'>
           Other Cities Served
         </label>
@@ -274,7 +271,6 @@ export default function SupplierQuestionnaire() {
           className='block w-full p-2 h-10 border border-gray-300 rounded-md mb-4 focus:outline-none focus:ring-2 focus:ring-[#2c6449] focus:border-transparent'
         />
 
-        {/* Delivery Option */}
         <div className='mb-6'>
           <label className='block mb-2 text-[#2c6449] font-medium'>
             Delivery Option *
@@ -305,7 +301,6 @@ export default function SupplierQuestionnaire() {
           </div>
         </div>
 
-        {/* OTP input shown after OTP is sent */}
         {otpSent && !otpVerified && (
           <div className='mb-4'>
             <label className='block mb-2 text-[#2c6449] font-medium'>
@@ -323,7 +318,6 @@ export default function SupplierQuestionnaire() {
           </div>
         )}
 
-        {/* Submit button */}
         <button
           onClick={handleSubmit}
           className='w-full py-3 bg-[#2c6449] text-white rounded-md hover:bg-[#1d4d36] transition-all ease-in-out duration-200 disabled:opacity-50'

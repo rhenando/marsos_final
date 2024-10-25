@@ -1,26 +1,30 @@
-import jwt from "jsonwebtoken";
+// middleware.js
+import { NextResponse } from "next/server";
+import { getAuth } from "firebase/auth";
+import { getFirestore, doc, getDoc } from "firebase/firestore";
+import { auth, db } from "./lib/firebase";
 
-export const config = {
-  matcher: ["/vendor/:path*", "/admin/:path*"],
-};
+export async function middleware(req) {
+  const { pathname } = req.nextUrl;
 
-export function middleware(req) {
-  const token = req.headers.get("authorization");
+  // Only apply middleware on protected paths
+  if (pathname.startsWith("/dashboard")) {
+    const user = auth.currentUser;
+    if (!user) {
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
 
-  if (!token) {
-    return new Response(JSON.stringify({ error: "No token provided" }), {
-      status: 403,
-    });
+    const userDoc = await getDoc(doc(db, "users", user.uid));
+    const role = userDoc.exists() ? userDoc.data().role : null;
+
+    if (pathname.startsWith("/dashboard/supplier") && role !== "supplier") {
+      return NextResponse.redirect(new URL("/", req.url));
+    }
+
+    if (pathname.startsWith("/dashboard/buyer") && role !== "buyer") {
+      return NextResponse.redirect(new URL("/", req.url));
+    }
   }
 
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    return NextResponse.next();
-  } catch (error) {
-    return new Response(
-      JSON.stringify({ error: "Failed to authenticate token" }),
-      { status: 500 }
-    );
-  }
+  return NextResponse.next();
 }

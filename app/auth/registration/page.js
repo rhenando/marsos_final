@@ -17,7 +17,7 @@ export default function RegistrationPage() {
   };
 
   const handleLogin = () => {
-    router.push("/auth/login"); // Redirect to login page
+    router.push("/login"); // Redirect to login page
   };
 
   const handleGuestBrowse = () => {

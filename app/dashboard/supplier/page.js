@@ -1,37 +1,70 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link"; // Import Link for navigation
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { useUser } from "../../../context/UserContext"; // Import User Context
+import { db } from "../../../lib/firebase"; // Adjust based on your project structure
+import { collection, query, where, getDocs } from "firebase/firestore"; // Firestore functions
 
 export default function SupplierDashboard() {
-  // Initial form data state
-  const [formData, setFormData] = useState({
-    companyName: "Company XYZ",
-    phoneNumber: "+966123456789",
-    crLicense: null, // For file upload
-  });
+  const { user } = useUser(); // Fetch the user from the UserContext
+  const [supplierData, setSupplierData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // Handle input changes
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+  // Function to normalize phone number (remove any leading + if needed)
+  const normalizePhoneNumber = (phoneNumber) => {
+    return phoneNumber.startsWith("+") ? phoneNumber : `+966${phoneNumber}`;
   };
 
-  // Handle file change for CR License
-  const handleFileChange = (e) => {
-    setFormData({ ...formData, crLicense: e.target.files[0] });
-  };
+  // Fetch supplier details from Firestore when the user is available
+  useEffect(() => {
+    const fetchSupplierDetails = async () => {
+      if (user && user.phoneNumber) {
+        try {
+          const normalizedPhoneNumber = normalizePhoneNumber(user.phoneNumber);
+          console.log("Normalized Phone Number:", normalizedPhoneNumber);
 
-  // Handle form submission (this is just a placeholder for now)
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log("Form submitted", formData);
-    // Add form submission logic here (e.g., API calls)
-  };
+          // Use a query instead of doc reference to handle flexible phone numbers
+          const suppliersCollection = collection(db, "suppliers");
+          const q = query(
+            suppliersCollection,
+            where("phoneNumber", "==", normalizedPhoneNumber)
+          );
+
+          const querySnapshot = await getDocs(q);
+
+          if (!querySnapshot.empty) {
+            const docData = querySnapshot.docs[0].data();
+            setSupplierData(docData);
+            console.log("Supplier Data:", docData); // Debugging supplier data
+          } else {
+            console.log("No supplier details found in Firestore");
+          }
+        } catch (error) {
+          console.error("Error fetching supplier details:", error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchSupplierDetails();
+  }, [user]);
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!supplierData) {
+    return <div>No supplier details found in Firestore</div>;
+  }
 
   return (
     <div className='p-8'>
-      <h1 className='text-2xl font-bold mb-4'>Welcome to Supplier Dashboard</h1>
+      {/* Display Supplier's company name */}
+      <h1 className='text-2xl font-bold mb-4'>
+        Welcome, {supplierData.companyName || "Supplier"}!
+      </h1>
 
       {/* Overview Section */}
       <div className='grid grid-cols-2 gap-6'>
@@ -45,47 +78,36 @@ export default function SupplierDashboard() {
         </div>
       </div>
 
-      {/* Profile Management */}
+      {/* Profile Information */}
       <div className='mt-8'>
         <h2 className='text-lg font-semibold mb-4'>Profile Information</h2>
-        <form onSubmit={handleSubmit}>
-          {/* Company Name */}
-          <label className='block mb-2'>Company Name</label>
-          <input
-            className='w-full p-2 border rounded mb-4'
-            type='text'
-            name='companyName'
-            value={formData.companyName}
-            onChange={handleChange} // Handle change event
-          />
 
-          {/* Phone Number */}
-          <label className='block mb-2'>Phone Number</label>
-          <input
-            className='w-full p-2 border rounded mb-4'
-            type='text'
-            name='phoneNumber'
-            value={formData.phoneNumber}
-            onChange={handleChange} // Handle change event
-          />
-
-          {/* CR License File Upload */}
-          <label className='block mb-2'>CR License</label>
-          <input
-            className='w-full p-2 border rounded mb-4'
-            type='file'
-            name='crLicense'
-            onChange={handleFileChange} // Handle file change
-          />
-
-          {/* Submit Button */}
-          <button
-            type='submit'
-            className='bg-blue-500 text-white px-4 py-2 rounded'
-          >
-            Save Changes
-          </button>
-        </form>
+        {/* Display company details */}
+        <p>
+          <strong>Company Name:</strong> {supplierData.companyName}
+        </p>
+        <p>
+          <strong>Phone Number:</strong> {supplierData.phoneNumber}
+        </p>
+        <p>
+          <strong>CR Number:</strong> {supplierData.crNumber}
+        </p>
+        <p>
+          <strong>Delivery Option:</strong> {supplierData.deliveryOption}
+        </p>
+        <p>
+          <strong>Location:</strong> {supplierData.location}
+        </p>
+        <p>
+          <strong>Email:</strong> {supplierData.email || "No email provided"}
+        </p>
+        <p>
+          <strong>Other Cities Served:</strong>{" "}
+          {supplierData.otherCitiesServed || "N/A"}
+        </p>
+        <p>
+          <strong>Region:</strong> {supplierData.region}
+        </p>
       </div>
 
       {/* Add Products Button */}

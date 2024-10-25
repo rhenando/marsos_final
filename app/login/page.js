@@ -1,253 +1,207 @@
-"use client"; // For client-side rendering
+"use client";
 
-import { useState, useEffect, useRef } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { useRouter } from "next/navigation"; // Import useRouter for redirection
-import logo from "../../public/logo-marsos.svg"; // Adjust the path to your logo
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
-  FaUser,
-  FaShoppingCart,
-  FaClipboardList,
-  FaCommentDots,
-  FaBars, // Add hamburger icon
-  FaTimes, // Add close icon
-} from "react-icons/fa"; // For icons
+  doc,
+  getDoc,
+  query,
+  where,
+  collection,
+  getDocs,
+} from "firebase/firestore"; // Import Firestore functions
+import { db } from "../../lib/firebase"; // Adjust based on your project structure
 
-export default function Header() {
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false); // State to control menu visibility
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false); // State for submenu visibility
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // Simulating user logged-in state (you can replace this with your actual login logic)
-  const userMenuRef = useRef(null); // Reference for the user menu
-  const router = useRouter(); // Initialize the router
+export default function Login() {
+  const router = useRouter();
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const handleScroll = () => {
-      if (window.scrollY > 50) {
-        setIsScrolled(true); // When scrolled down 50px or more
+  const handlePhoneNumberChange = (e) => {
+    setPhoneNumber(e.target.value);
+  };
+
+  const handleOtpChange = (e) => {
+    setOtp(e.target.value);
+  };
+
+  const normalizePhoneNumber = (phone) => {
+    return phone.startsWith("+") ? phone : `+966${phone}`;
+  };
+
+  const handleSendOtp = async () => {
+    if (!phoneNumber) {
+      alert("Please enter your phone number.");
+      return;
+    }
+
+    const formattedPhoneNumber = normalizePhoneNumber(phoneNumber);
+
+    setLoading(true);
+    try {
+      const response = await fetch("/api/sendOtp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber: formattedPhoneNumber }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setOtpSent(true);
+        alert("OTP sent! Please enter the code to continue.");
       } else {
-        setIsScrolled(false); // Reset when at the top of the page
+        alert("Failed to send OTP. Please try again.");
       }
-    };
+    } catch (error) {
+      console.error("Error sending OTP:", error);
+      alert("Failed to send OTP. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  const handleVerifyOtp = async () => {
+    if (!otp) {
+      alert("Please enter the OTP.");
+      return;
+    }
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      // Close the submenu if clicked outside
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
-        setIsUserMenuOpen(false);
+    const formattedPhoneNumber = normalizePhoneNumber(phoneNumber);
+
+    setLoading(true);
+    try {
+      const response = await fetch("/api/verifyOtp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phoneNumber: formattedPhoneNumber,
+          otpCode: otp,
+        }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setOtpVerified(true);
+        alert("OTP verified! Logging you in...");
+
+        // Fetch user from Firestore
+        const userRole = await fetchUserRoleFromFirestore(formattedPhoneNumber);
+
+        if (userRole) {
+          // Save user info in localStorage, including the name and role
+          const userInfo = {
+            phoneNumber: formattedPhoneNumber,
+            name: userRole.name, // Fetching name
+            role: userRole.role, // Fetching role
+          };
+          localStorage.setItem("userInfo", JSON.stringify(userInfo));
+
+          // Redirect to homepage
+          router.push("/");
+        } else {
+          alert("User not found in the database.");
+        }
+      } else {
+        alert("Invalid OTP. Please try again.");
       }
-    };
-    // Add event listener for clicks outside the menu
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      // Cleanup the event listener on component unmount
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
+    } catch (error) {
+      console.error("Error verifying OTP:", error);
+      alert("Failed to verify OTP. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const handleUserIconClick = () => {
-    // If the user is not logged in, redirect to the registration page
-    if (!isLoggedIn) {
-      router.push("app/auth/registration");
-    } else {
-      // Otherwise, toggle the user menu
-      setIsUserMenuOpen(!isUserMenuOpen);
+  const fetchUserRoleFromFirestore = async (formattedPhoneNumber) => {
+    try {
+      const userCollection = collection(db, "suppliers"); // Adjust based on your database structure
+      let q = query(
+        userCollection,
+        where("phoneNumber", "==", formattedPhoneNumber)
+      );
+
+      let querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
+        // Try querying again without the +966 prefix
+        const plainPhoneNumber = formattedPhoneNumber.replace("+966", "");
+        q = query(userCollection, where("phoneNumber", "==", plainPhoneNumber));
+        querySnapshot = await getDocs(q);
+      }
+
+      if (!querySnapshot.empty) {
+        // If user found, return their role and name
+        const userData = querySnapshot.docs[0].data();
+        return {
+          role: userData.role,
+          name: userData.name || "Anonymous", // Fallback to "Anonymous" if no name found
+        };
+      } else {
+        return null; // User not found
+      }
+    } catch (error) {
+      console.error("Error fetching user role from Firestore:", error);
+      return null;
     }
   };
 
   return (
-    <>
-      {/* Header Section */}
-      <header
-        className={`relative z-50 transition-all duration-500 ${
-          isScrolled
-            ? "fixed top-0 left-0 w-full z-50 bg-[#2c6449] text-white"
-            : "bg-white text-gray-800"
-        }`}
-        style={{ zIndex: 1000 }} // Ensure header has higher z-index
-      >
-        <div className='absolute inset-0'></div>
+    <div className='flex flex-col items-center justify-center min-h-screen bg-gray-50'>
+      <div className='w-full max-w-md p-8 bg-white rounded-lg shadow-lg'>
+        <h1 className='text-2xl text-center text-[#2c6449] font-semibold mb-4'>
+          Login
+        </h1>
+        <p className='text-center text-gray-500 mb-6'>
+          Please enter your phone number to log in.
+        </p>
 
-        <div
-          className={`relative max-w-screen-xl mx-auto px-4 lg:px-10 flex items-center justify-between md:flex-row-reverse py-3 transition-all duration-500 ${
-            isScrolled ? "py-2" : "py-3"
-          }`}
-        >
-          {/* Hamburger Menu Icon for small and medium screens (left side) */}
-          <div className='md:hidden flex items-center'>
-            <button
-              className='text-2xl focus:outline-none'
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-            >
-              {isMenuOpen ? <FaTimes /> : <FaBars />}
-            </button>
+        <div>
+          <label className='block mb-2 text-[#2c6449] font-medium'>
+            Phone Number *
+          </label>
+          <div className='flex items-center mb-4'>
+            <div className='flex items-center bg-gray-100 border border-gray-300 rounded-l-md px-3 h-10'>
+              <span className='text-gray-700'>🇸🇦 +966</span>
+            </div>
+            <input
+              type='text'
+              value={phoneNumber}
+              onChange={handlePhoneNumberChange}
+              placeholder='Enter your phone number'
+              className='flex-grow p-2 h-10 border border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-[#2c6449] focus:border-transparent'
+              required
+            />
           </div>
 
-          {/* Main Logo Section (right side on small and medium screens, and on the right for large screens) */}
-          <Link href='/'>
-            <div className='ml-auto md:ml-0 transition-all duration-500'>
-              <Image
-                src={logo}
-                alt='Logo'
-                width={isScrolled ? 60 : 100} // Reduce logo size when scrolled
-                height={isScrolled ? 60 : 100}
-                className='transition-all duration-500'
+          {otpSent && (
+            <>
+              <label className='block mb-2 text-[#2c6449] font-medium'>
+                Enter OTP
+              </label>
+              <input
+                type='text'
+                value={otp}
+                onChange={handleOtpChange}
+                placeholder='Enter the OTP sent to your phone'
+                className='block w-full p-2 mb-4 border border-gray-300 rounded-md focus:outline-none'
+                required
               />
-            </div>
-          </Link>
+            </>
+          )}
 
-          {/* Icons and Info Section - Hidden on small/medium, visible on large screens */}
-          <div
-            className={`hidden md:flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-8 text-xl w-full md:w-auto transition-all duration-500 ${
-              isScrolled ? "translate-x-[-50px]" : "translate-x-0"
-            }`}
+          <button
+            type='button'
+            onClick={otpSent ? handleVerifyOtp : handleSendOtp}
+            className='w-full py-3 bg-[#2c6449] text-white rounded-md hover:bg-[#1d4d36] transition-all ease-in-out duration-200 disabled:opacity-50'
+            disabled={loading}
           >
-            {/* Icons */}
-            <div className='flex justify-center md:justify-start space-x-6 relative'>
-              {/* User Icon */}
-              <FaUser
-                className='w-7 h-7 hover:text-[#2c6449] cursor-pointer'
-                onClick={handleUserIconClick} // Call the user icon click handler
-              />
-
-              {/* Submenu Container */}
-              {isUserMenuOpen && isLoggedIn && (
-                <div
-                  ref={userMenuRef}
-                  className='absolute top-full mt-2 bg-white text-gray-800 p-4 shadow-lg rounded-lg z-50 w-64 max-h-[300px] overflow-y-auto'
-                  style={{ zIndex: 1001 }} // Ensure submenu is above everything
-                >
-                  <ul className='text-base space-y-4'>
-                    <li>
-                      <Link href='/my-marsos'>My Marsos</Link>
-                    </li>
-                    <li>
-                      <Link href='/orders'>Orders</Link>
-                    </li>
-                    <li>
-                      <Link href='/messages'>Messages</Link>
-                    </li>
-                    <li>
-                      <Link href='/rfqs'>RFQs</Link>
-                    </li>
-                    <li>
-                      <Link href='/favorites'>Favorites</Link>
-                    </li>
-                    <li>
-                      <Link href='/account'>Account</Link>
-                    </li>
-                    <li>
-                      <Link href='/sign-out'>Sign Out</Link>
-                    </li>
-                  </ul>
-                </div>
-              )}
-
-              {/* Other Icons */}
-              <FaShoppingCart className='w-7 h-7 hover:text-[#2c6449] cursor-pointer' />
-              <FaClipboardList className='w-7 h-7 hover:text-[#2c6449] cursor-pointer' />
-              <FaCommentDots className='w-7 h-7 hover:text-[#2c6449] cursor-pointer' />
-            </div>
-
-            {/* Delivery Info */}
-            <div className='flex items-center justify-center md:justify-start space-x-2'>
-              <span className='text-lg'>التوصيل إلى:</span>{" "}
-              {/* Translated "Deliver to:" */}
-              <Image
-                src='/sa-flag.svg'
-                alt='Saudi Flag'
-                width={24}
-                height={18}
-              />
-              <span className='text-lg font-semibold'>SA</span>
-            </div>
-
-            {/* Language & Currency */}
-            <div className='text-lg space-x-2 text-center md:text-left'>
-              <span>English-USD</span>
-            </div>
-          </div>
+            {loading ? "Processing..." : otpSent ? "Verify OTP" : "Send OTP"}
+          </button>
         </div>
-      </header>
-
-      {/* Hamburger Menu Links (small and medium screens) */}
-      <div
-        className={`${
-          isMenuOpen ? "block" : "hidden"
-        } md:hidden bg-[#2c6449] text-white transition-all duration-500 py-4`}
-      >
-        <nav className='flex flex-col space-y-4 text-center'>
-          <Link href='/' className='hover:text-gray-300'>
-            البائعين {/* Become a vendor */}
-          </Link>
-          <Link href='/' className='hover:text-gray-300'>
-            حمل التطبيق {/* Get the app */}
-          </Link>
-          <Link href='/' className='hover:text-gray-300'>
-            خدمة العملاء {/* Help Center */}
-          </Link>
-          <Link href='/' className='hover:text-gray-300'>
-            منتجات سعودية {/* Products */}
-          </Link>
-          <Link href='/' className='hover:text-gray-300'>
-            معدات {/* Equipment */}
-          </Link>
-          <Link href='/' className='hover:text-gray-300'>
-            مواد بناء {/* Construction */}
-          </Link>
-        </nav>
       </div>
-
-      {/* Horizontal Navigation Bar for larger screens */}
-      <div
-        className={`hidden md:block transition-all duration-500 py-4 shadow-md ${
-          isScrolled
-            ? "bg-white text-[#2c6449] fixed top-0 left-0 w-full z-40"
-            : "bg-[#2c6449] text-white"
-        }`}
-      >
-        <nav className='max-w-screen-xl mx-auto flex flex-col md:flex-row justify-between items-center'>
-          {/* Right-side Links */}
-          <div className='flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-10'>
-            <Link href='/' className='hover:text-gray-500'>
-              البائعين {/* Become a vendor */}
-            </Link>
-            <Link href='/' className='hover:text-gray-500'>
-              حمل التطبيق {/* Get the app */}
-            </Link>
-            <Link href='/' className='hover:text-gray-500'>
-              خدمة العملاء {/* Help Center */}
-            </Link>
-          </div>
-
-          {/* Left-side Links */}
-          <div className='flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-10 mt-4 md:mt-0 items-center'>
-            <Link href='/' className='hover:text-gray-500'>
-              منتجات سعودية {/* Products */}
-            </Link>
-            <Link href='/' className='hover:text-gray-500'>
-              معدات {/* Equipment */}
-            </Link>
-            <Link href='/' className='hover:text-gray-500'>
-              مواد بناء {/* Construction */}
-            </Link>
-            {isScrolled && (
-              <Image
-                src={logo}
-                alt='Small Logo'
-                width={40}
-                height={40}
-                className='ml-4 transition-opacity duration-500'
-              />
-            )}
-          </div>
-        </nav>
-      </div>
-    </>
+    </div>
   );
 }

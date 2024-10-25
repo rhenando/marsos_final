@@ -26,13 +26,18 @@ export default function BuyerQuestionnaire() {
 
   // Send OTP by calling the server-side API route
   const handleSendOTP = async () => {
+    // Ensure the phone number includes the "+" symbol and country code
+    const formattedPhoneNumber = formData.phoneNumber.startsWith("+")
+      ? formData.phoneNumber
+      : `+966${formData.phoneNumber}`; // Prepend +966 if not already present
+
     try {
       const response = await fetch("/api/sendOtp", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ phoneNumber: formData.phoneNumber }),
+        body: JSON.stringify({ phoneNumber: formattedPhoneNumber }),
       });
 
       const result = await response.json();
@@ -50,6 +55,10 @@ export default function BuyerQuestionnaire() {
 
   // Verify OTP by calling the server-side API route
   const handleVerifyOTP = async () => {
+    const formattedPhoneNumber = formData.phoneNumber.startsWith("+")
+      ? formData.phoneNumber
+      : `+966${formData.phoneNumber}`; // Ensure consistency in format
+
     try {
       const response = await fetch("/api/verifyOtp", {
         method: "POST",
@@ -57,7 +66,7 @@ export default function BuyerQuestionnaire() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          phoneNumber: formData.phoneNumber,
+          phoneNumber: formattedPhoneNumber,
           otpCode: otp,
         }),
       });

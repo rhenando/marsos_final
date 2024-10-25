@@ -1,3 +1,7 @@
+"use client";
+
+import { UserProvider } from "../context/UserContext";
+
 import localFont from "next/font/local";
 import "./globals.css";
 
@@ -12,10 +16,10 @@ const geistMono = localFont({
   weight: "100 900",
 });
 
-export const metadata = {
-  title: "Marsos",
-  description: "Marsos Platform",
-};
+// export const metadata = {
+//   title: "Marsos",
+//   description: "Marsos Platform",
+// };
 
 export default function RootLayout({ children }) {
   return (
@@ -23,7 +27,7 @@ export default function RootLayout({ children }) {
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <UserProvider>{children}</UserProvider>
       </body>
     </html>
   );

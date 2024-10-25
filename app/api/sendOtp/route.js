@@ -1,26 +1,20 @@
-import { NextResponse } from "next/server";
-import twilio from "twilio";
-
-const client = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
+// app/api/sendOtp/route.js
+import { sendOTP } from "../../../lib/twilio";
 
 export async function POST(req) {
+  const { phoneNumber } = await req.json();
+
   try {
-    const { phoneNumber } = await req.json();
-
-    // Send OTP using Twilio
-    const otpResponse = await client.verify
-      .services(process.env.TWILIO_VERIFY_SERVICE_SID)
-      .verifications.create({ to: `+966${phoneNumber}`, channel: "sms" });
-
-    return NextResponse.json({ success: true, message: "OTP sent!" });
+    await sendOTP(phoneNumber);
+    return new Response(
+      JSON.stringify({ success: true, message: "OTP sent" }),
+      { status: 200 }
+    );
   } catch (error) {
     console.error("Error sending OTP:", error);
-    return NextResponse.json({
-      success: false,
-      message: "Failed to send OTP.",
-    });
+    return new Response(
+      JSON.stringify({ success: false, error: error.message }),
+      { status: 500 }
+    );
   }
 }

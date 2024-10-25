@@ -1,11 +1,79 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useUser } from "../../../context/UserContext"; // Import User Context
+import { db } from "../../../lib/firebase"; // Adjust based on your project structure
+import { collection, query, where, getDocs } from "firebase/firestore"; // Firestore functions
 
 export default function BuyerDashboard() {
+  const { user } = useUser(); // Fetch user from UserContext
+  const [buyerData, setBuyerData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // Normalize phone number (handle cases with or without +966 prefix)
+  const normalizePhoneNumber = (phoneNumber) => {
+    return phoneNumber.startsWith("+") ? phoneNumber : `+966${phoneNumber}`;
+  };
+
+  // Fetch buyer details from Firestore when the user is available
+  useEffect(() => {
+    const fetchBuyerDetails = async () => {
+      if (user && user.phoneNumber) {
+        try {
+          const normalizedPhoneNumber = normalizePhoneNumber(user.phoneNumber);
+          console.log("Normalized Phone Number:", normalizedPhoneNumber);
+
+          // Query Firestore for a buyer with the matching phone number
+          const buyersCollection = collection(db, "buyers");
+          let q = query(
+            buyersCollection,
+            where("phoneNumber", "==", normalizedPhoneNumber)
+          );
+
+          let querySnapshot = await getDocs(q);
+
+          if (querySnapshot.empty) {
+            // Retry without +966 prefix if not found
+            const plainPhoneNumber = normalizedPhoneNumber.replace("+966", "");
+            q = query(
+              buyersCollection,
+              where("phoneNumber", "==", plainPhoneNumber)
+            );
+            querySnapshot = await getDocs(q);
+          }
+
+          if (!querySnapshot.empty) {
+            const docData = querySnapshot.docs[0].data();
+            setBuyerData(docData);
+            console.log("Buyer Data:", docData); // Debugging buyer data
+          } else {
+            console.log("No buyer details found in Firestore");
+          }
+        } catch (error) {
+          console.error("Error fetching buyer details from Firestore:", error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchBuyerDetails();
+  }, [user]);
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!buyerData) {
+    return <div>No buyer details found in Firestore</div>;
+  }
+
   return (
     <div className='p-8'>
-      <h1 className='text-2xl font-bold mb-4'>Welcome to Buyer Dashboard</h1>
+      <h1 className='text-2xl font-bold mb-4'>
+        Welcome, {buyerData.name || "Buyer"}!
+      </h1>
 
       {/* Order Overview Section */}
       <div className='grid grid-cols-2 gap-6'>
@@ -58,14 +126,18 @@ export default function BuyerDashboard() {
         </Link>
       </div>
 
-      {/* Profile Management Section */}
+      {/* Profile Information */}
       <div className='mt-8'>
-        <h2 className='text-lg font-semibold mb-4'>Manage Profile</h2>
-        <Link href='/dashboard/buyer/profile'>
-          <button className='bg-blue-500 text-white px-4 py-2 rounded'>
-            Edit Profile
-          </button>
-        </Link>
+        <h2 className='text-lg font-semibold mb-4'>Profile Information</h2>
+        <p>
+          <strong>Name:</strong> {buyerData.name || "N/A"}
+        </p>
+        <p>
+          <strong>Phone Number:</strong> {buyerData.phoneNumber}
+        </p>
+        <p>
+          <strong>Location:</strong> {buyerData.location || "N/A"}
+        </p>
       </div>
 
       {/* Logout Button */}

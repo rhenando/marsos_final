@@ -1,27 +1,20 @@
 "use client";
 import { useState, useEffect } from "react";
-import { db } from "../../../lib/firebase"; // Adjust path as needed
+import { db } from "../../../lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
-import jsPDF from "jspdf"; // Import jsPDF for PDF generation
-import autoTable from "jspdf-autotable"; // Import autoTable for tables
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import Preloader from "@/components/Preloader"; // Import Preloader component
-import { FaComments, FaTimes } from "react-icons/fa"; // Import icons for chat
+import Preloader from "@/components/Preloader";
+import { FaComments } from "react-icons/fa";
 
 export default function ProductDetailsPage({ params }) {
-  const { id } = params; // Get the product ID from the dynamic route
+  const { id } = params;
   const [product, setProduct] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false); // For controlling the modal
-  const [quantity, setQuantity] = useState(""); // Example input in modal
-  const [additionalNotes, setAdditionalNotes] = useState(""); // Another example input
-  const [loading, setLoading] = useState(true); // Add loading state
-  const [isChatOpen, setIsChatOpen] = useState(false); // Chat window state
-  const [message, setMessage] = useState(""); // Message input state
-  const [messages, setMessages] = useState([]); // State to store chat messages
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Fetch the product from Firestore
   useEffect(() => {
+    // Fetch the product details from Firestore
     async function fetchProduct() {
       if (!id) return;
 
@@ -35,27 +28,20 @@ export default function ProductDetailsPage({ params }) {
       } catch (error) {
         console.error("Error fetching product details:", error);
       } finally {
-        setLoading(false); // Stop loading after fetching data
+        setLoading(false);
       }
     }
+
     fetchProduct();
   }, [id]);
 
-  // Handle sending the message
-  const handleSendMessage = () => {
-    if (message.trim() === "") return; // Prevent empty messages
-
-    // Add the new message to the list of messages
-    setMessages((prevMessages) => [
-      ...prevMessages,
-      { text: message, sender: "user" }, // You can add 'sender' to distinguish between user and supplier
-    ]);
-
-    // Clear the input field after sending the message
-    setMessage("");
+  const handleContactClick = () => {
+    const url = `/contact-supplier?id=${id}&productName=${encodeURIComponent(
+      product?.productName || ""
+    )}`;
+    window.open(url, "_blank");
   };
 
-  // Show preloader while loading
   if (loading) {
     return <Preloader />;
   }
@@ -70,7 +56,6 @@ export default function ProductDetailsPage({ params }) {
       <div className='flex items-center justify-center min-h-screen'>
         <div className='max-w-screen-xl w-full p-6'>
           <div className='grid grid-cols-1 lg:grid-cols-5 gap-12'>
-            {/* Left Section: Product Images */}
             <div className='col-span-3 flex'>
               <div className='flex flex-col space-y-4 mr-4'>
                 {product.images &&
@@ -83,7 +68,6 @@ export default function ProductDetailsPage({ params }) {
                     />
                   ))}
               </div>
-              {/* Main Image */}
               <div className='mt-4'>
                 <img
                   src={product.images && product.images[0].mainImage}
@@ -94,19 +78,14 @@ export default function ProductDetailsPage({ params }) {
               </div>
             </div>
 
-            {/* Right Section: Product Details */}
             <div className='col-span-2'>
               <h1 className='text-3xl font-bold mb-4'>
                 {product.productName || "N/A"}
               </h1>
-
-              {/* Product Rating */}
               <div className='flex items-center mb-4'>
                 <span className='text-yellow-500 text-lg'>★ ★ ★ ★ ☆</span>
                 <span className='ml-2 text-gray-600'>(7 Reviews)</span>
               </div>
-
-              {/* Price Ranges */}
               {product.priceRanges && (
                 <div className='grid grid-cols-2 gap-4 mb-6'>
                   {product.priceRanges.map((range, idx) => (
@@ -117,25 +96,21 @@ export default function ProductDetailsPage({ params }) {
                   ))}
                 </div>
               )}
-
-              {/* Stock Quantity */}
               {product.stockQuantity && (
                 <p className='text-gray-600 mb-4'>
                   Stock: {product.stockQuantity}
                 </p>
               )}
-
-              {/* Buttons */}
               <div className='flex space-x-4'>
                 <button
                   className='bg-[#2c6449] text-white py-2 px-6 rounded'
-                  onClick={() => setIsModalOpen(true)} // Ensure this function is available
+                  onClick={() => setIsModalOpen(true)}
                 >
                   Start order request
                 </button>
                 <button
-                  onClick={() => setIsChatOpen(!isChatOpen)} // Toggle chat window
-                  className='bg-transparent border border-gray-600 text-gray-600 py-2 px-6 rounded hover:border-[#2c6449] hover:text-[#2c6449]'
+                  onClick={() => window.open(`/chat?productId=${id}`, "_blank")}
+                  className='bg-transparent border border-gray-600 text-gray-600 py-2 px-6 rounded'
                 >
                   Contact supplier
                 </button>
@@ -145,67 +120,14 @@ export default function ProductDetailsPage({ params }) {
         </div>
       </div>
 
-      {/* Chat Icon */}
-      <div
-        className='fixed bottom-4 right-4 bg-[#2c6449] text-white rounded-full p-4 cursor-pointer shadow-lg'
-        onClick={() => setIsChatOpen(!isChatOpen)} // Toggle chat window
-      >
-        <FaComments className='text-2xl' />
+      <div className='fixed bottom-4 right-4'>
+        <button
+          onClick={() => window.open(`/chat?productId=${id}`, "_blank")}
+          className='bg-transparent border border-gray-600 text-gray-600 py-2 px-6 rounded'
+        >
+          Messenger
+        </button>
       </div>
-
-      {/* Chat Window */}
-      {isChatOpen && (
-        <div className='fixed bottom-16 right-4 w-80 bg-white shadow-lg border border-gray-300 rounded-lg p-4 z-50'>
-          <div className='flex justify-between items-center mb-2'>
-            <h3 className='text-lg font-semibold'>Chat with Supplier</h3>
-            <button
-              className='text-gray-600'
-              onClick={() => setIsChatOpen(false)} // Close chat window
-            >
-              <FaTimes />
-            </button>
-          </div>
-          <div className='text-sm text-gray-600 mb-2'>
-            You are discussing: <strong>{product.productName}</strong>
-          </div>
-
-          {/* Display product thumbnails in the chat window */}
-          <div className='flex overflow-x-auto space-x-2 mb-2'>
-            {product.images &&
-              product.images.map((image, index) => (
-                <img
-                  key={index}
-                  src={image.thumbnail}
-                  alt={product.productName}
-                  className='w-12 h-12 object-cover rounded border'
-                />
-              ))}
-          </div>
-
-          {/* Chat messages */}
-          <div className='h-40 overflow-y-auto mb-2'>
-            {messages.map((msg, index) => (
-              <div key={index} className='text-sm mb-2'>
-                <span className='block text-gray-700'>{msg.text}</span>
-              </div>
-            ))}
-          </div>
-
-          <input
-            type='text'
-            placeholder='Type your message...'
-            value={message} // Controlled input bound to message state
-            onChange={(e) => setMessage(e.target.value)} // Update message state on change
-            className='w-full border rounded p-2 mb-2'
-          />
-          <button
-            className='bg-[#2c6449] text-white py-2 px-4 rounded w-full'
-            onClick={handleSendMessage} // Handle sending the message
-          >
-            Send
-          </button>
-        </div>
-      )}
 
       <Footer />
     </>
