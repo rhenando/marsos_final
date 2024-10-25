@@ -118,19 +118,22 @@ export default function SupplierQuestionnaire() {
           });
         }
 
+        // Normalize the phone number by removing +966 if present
+        const normalizedPhoneNumber = formData.phoneNumber.startsWith("+966")
+          ? formData.phoneNumber.slice(4) // Remove the first 4 characters (+966)
+          : formData.phoneNumber;
+
         const supplierRef = collection(db, "suppliers");
         await addDoc(supplierRef, {
           ...formData,
-          phoneNumber: formData.phoneNumber.startsWith("+966")
-            ? formData.phoneNumber
-            : `+966${formData.phoneNumber}`,
+          phoneNumber: normalizedPhoneNumber, // Save the normalized phone number
           crLicenseURL,
           otpVerified: true,
           role: "supplier",
         });
 
         setUploading(false);
-        router.push("/dashboard/supplier");
+        router.push("/login");
       } catch (error) {
         console.error("Error registering supplier:", error);
         setUploading(false);

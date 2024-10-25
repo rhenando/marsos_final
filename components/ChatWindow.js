@@ -1,77 +1,67 @@
-"use client"; // Client-side rendering
-import { useState } from "react";
-import { FaComments, FaTimes } from "react-icons/fa";
+// app/components/ChatWindow.js
+"use client";
 
-export default function ChatWindow({ product }) {
-  const [isChatOpen, setIsChatOpen] = useState(false); // Control chat window visibility
+import { useEffect, useState } from "react";
+import { initializeApp, getApps, getApp } from "firebase/app";
+import {
+  getFirestore,
+  collection,
+  query,
+  orderBy,
+  onSnapshot,
+} from "firebase/firestore";
 
-  // Toggle chat window visibility
-  const toggleChatWindow = () => {
-    setIsChatOpen(!isChatOpen);
-  };
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
+
+// Initialize Firebase only once
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+const db = getFirestore(app);
+
+const ChatWindow = ({ chatId }) => {
+  const [messages, setMessages] = useState([]);
+
+  useEffect(() => {
+    if (!chatId) return;
+
+    const q = query(
+      collection(db, "chats", chatId, "messages"),
+      orderBy("timestamp", "asc")
+    );
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const msgs = [];
+      querySnapshot.forEach((doc) => {
+        msgs.push({ id: doc.id, ...doc.data() });
+      });
+      setMessages(msgs);
+    });
+
+    return () => unsubscribe();
+  }, [chatId]);
 
   return (
-    <>
-      {/* Floating Chat Button */}
-      <button
-        onClick={toggleChatWindow}
-        className='fixed bottom-5 right-5 bg-[#2c6449] text-white p-4 rounded-full shadow-lg hover:bg-green-600 z-50'
-      >
-        {isChatOpen ? <FaTimes /> : <FaComments />}
-      </button>
-
-      {/* Chat Window */}
-      {isChatOpen && (
+    <div className='w-full h-full p-4 bg-white flex flex-col space-y-3 overflow-y-auto'>
+      {messages.map((msg) => (
         <div
-          className='fixed bg-white shadow-lg rounded-lg overflow-hidden z-50'
-          style={{
-            bottom: "50px", // Adjust to your liking
-            right: "50px", // Adjust to your liking
-            width: "500px", // Enforced width
-            height: "600px", // Enforced height
-          }}
+          key={msg.id}
+          className={`p-3 rounded-lg max-w-lg ${
+            msg.sender_id === "supplier"
+              ? "self-end bg-green-200"
+              : "self-start bg-gray-200"
+          }`}
         >
-          <div className='bg-[#2c6449] text-white flex items-center justify-between px-4 py-3'>
-            <h2 className='text-lg font-semibold'>Chat</h2>
-            <button onClick={toggleChatWindow}>
-              <FaTimes />
-            </button>
-          </div>
-
-          <div className='p-4 h-full'>
-            <div className='text-center'>
-              <p>This is the chat window.</p>
-              <p>Size should now be enforced!</p>
-            </div>
-
-            {/* Display product information if available */}
-            <div className='mt-4'>
-              {product ? (
-                <div className='flex flex-col items-start space-y-4'>
-                  {product.images && product.images[0] && (
-                    <img
-                      src={
-                        product.images[0].thumbnail ||
-                        product.images[0].mainImage
-                      }
-                      alt={product.productName}
-                      className='w-32 h-32 object-cover rounded-lg'
-                    />
-                  )}
-                  <h3 className='text-lg font-semibold'>
-                    {product.productName || "Unknown Product"}
-                  </h3>
-                  <p className='text-gray-700'>
-                    SAR {product.price || "Not available"}
-                  </p>
-                </div>
-              ) : (
-                <p>Product information not available</p>
-              )}
-            </div>
-          </div>
+          <p>{msg.text}</p>
         </div>
-      )}
-    </>
+      ))}
+    </div>
   );
-}
+};
+
+export default ChatWindow;

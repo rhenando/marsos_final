@@ -113,7 +113,7 @@ export default function BuyerQuestionnaire() {
         setUploading(false);
 
         // Redirect to buyer dashboard after successful registration
-        router.push("/dashboard/buyer");
+        router.push("/login");
       } catch (error) {
         console.error("Error registering buyer:", error);
         setUploading(false);

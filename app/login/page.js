@@ -30,8 +30,8 @@ export default function Login() {
     setOtp(e.target.value);
   };
 
-  // Helper function to normalize phone number format
-  const normalizePhoneNumber = (phone) => {
+  // Helper function to normalize phone number format for OTP
+  const normalizePhoneNumberForOtp = (phone) => {
     return phone.startsWith("+") ? phone : `+966${phone}`;
   };
 
@@ -42,7 +42,7 @@ export default function Login() {
       return;
     }
 
-    const formattedPhoneNumber = normalizePhoneNumber(phoneNumber); // Normalize the phone number
+    const formattedPhoneNumber = normalizePhoneNumberForOtp(phoneNumber); // Add +966 for OTP purposes
 
     setLoading(true);
     try {
@@ -74,7 +74,7 @@ export default function Login() {
       return;
     }
 
-    const formattedPhoneNumber = normalizePhoneNumber(phoneNumber); // Normalize the phone number
+    const formattedPhoneNumber = normalizePhoneNumberForOtp(phoneNumber); // Add +966 for OTP purposes
 
     setLoading(true);
     try {
@@ -92,13 +92,17 @@ export default function Login() {
         setOtpVerified(true);
         alert("OTP verified! Logging you in...");
 
-        // Fetch user from Firestore with multiple phone number formats
-        const userRole = await fetchUserRoleFromFirestore(formattedPhoneNumber);
+        // Fetch user from Firestore without the +966 prefix
+        const plainPhoneNumber = phoneNumber.startsWith("+966")
+          ? phoneNumber.slice(4)
+          : phoneNumber; // Remove +966 if it exists
+
+        const userRole = await fetchUserRoleFromFirestore(plainPhoneNumber);
 
         if (userRole) {
           // Save user info in localStorage, including name and role
           const userInfo = {
-            phoneNumber: formattedPhoneNumber,
+            phoneNumber: plainPhoneNumber, // Store phone number without +966
             name: userRole.name, // Store the user's name
             role: userRole.role, // Store the user's role
           };
@@ -120,32 +124,19 @@ export default function Login() {
     }
   };
 
-  // Function to fetch user role from Firestore using both formats
-  const fetchUserRoleFromFirestore = async (formattedPhoneNumber) => {
-    console.log(
-      "Attempting to fetch user for phone number:",
-      formattedPhoneNumber
-    );
+  // Function to fetch user role from Firestore using plain phone number format
+  const fetchUserRoleFromFirestore = async (plainPhoneNumber) => {
+    console.log("Attempting to fetch user for phone number:", plainPhoneNumber);
 
     try {
       const userCollection = collection(db, "buyers"); // Adjust based on your database structure
 
-      // First, try to query using the exact phone number
-      let q = query(
+      // Query using the plain phone number (without +966)
+      const q = query(
         userCollection,
-        where("phoneNumber", "==", formattedPhoneNumber)
+        where("phoneNumber", "==", plainPhoneNumber)
       );
-
-      let querySnapshot = await getDocs(q);
-
-      if (querySnapshot.empty) {
-        // Try querying again without the +966 prefix
-        const plainPhoneNumber = formattedPhoneNumber.replace("+966", "");
-        console.log("Trying again with phone number:", plainPhoneNumber);
-
-        q = query(userCollection, where("phoneNumber", "==", plainPhoneNumber));
-        querySnapshot = await getDocs(q);
-      }
+      const querySnapshot = await getDocs(q);
 
       if (!querySnapshot.empty) {
         // If user found, return their role and name
@@ -156,7 +147,7 @@ export default function Login() {
           name: userData.name || "Anonymous", // Fallback to "Anonymous" if no name found
         };
       } else {
-        console.warn("No user found for either phone number format.");
+        console.warn("No user found for the plain phone number format.");
         return null; // User not found
       }
     } catch (error) {
