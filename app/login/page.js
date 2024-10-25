@@ -20,25 +20,29 @@ export default function Login() {
   const [otpVerified, setOtpVerified] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Handle phone number input change
   const handlePhoneNumberChange = (e) => {
     setPhoneNumber(e.target.value);
   };
 
+  // Handle OTP input change
   const handleOtpChange = (e) => {
     setOtp(e.target.value);
   };
 
+  // Helper function to normalize phone number format
   const normalizePhoneNumber = (phone) => {
     return phone.startsWith("+") ? phone : `+966${phone}`;
   };
 
+  // Send OTP for login
   const handleSendOtp = async () => {
     if (!phoneNumber) {
       alert("Please enter your phone number.");
       return;
     }
 
-    const formattedPhoneNumber = normalizePhoneNumber(phoneNumber);
+    const formattedPhoneNumber = normalizePhoneNumber(phoneNumber); // Normalize the phone number
 
     setLoading(true);
     try {
@@ -63,13 +67,14 @@ export default function Login() {
     }
   };
 
+  // Verify OTP and fetch user role from Firestore
   const handleVerifyOtp = async () => {
     if (!otp) {
       alert("Please enter the OTP.");
       return;
     }
 
-    const formattedPhoneNumber = normalizePhoneNumber(phoneNumber);
+    const formattedPhoneNumber = normalizePhoneNumber(phoneNumber); // Normalize the phone number
 
     setLoading(true);
     try {
@@ -87,15 +92,15 @@ export default function Login() {
         setOtpVerified(true);
         alert("OTP verified! Logging you in...");
 
-        // Fetch user from Firestore
+        // Fetch user from Firestore with multiple phone number formats
         const userRole = await fetchUserRoleFromFirestore(formattedPhoneNumber);
 
         if (userRole) {
-          // Save user info in localStorage, including the name and role
+          // Save user info in localStorage, including name and role
           const userInfo = {
             phoneNumber: formattedPhoneNumber,
-            name: userRole.name, // Fetching name
-            role: userRole.role, // Fetching role
+            name: userRole.name, // Store the user's name
+            role: userRole.role, // Store the user's role
           };
           localStorage.setItem("userInfo", JSON.stringify(userInfo));
 
@@ -115,9 +120,17 @@ export default function Login() {
     }
   };
 
+  // Function to fetch user role from Firestore using both formats
   const fetchUserRoleFromFirestore = async (formattedPhoneNumber) => {
+    console.log(
+      "Attempting to fetch user for phone number:",
+      formattedPhoneNumber
+    );
+
     try {
-      const userCollection = collection(db, "suppliers"); // Adjust based on your database structure
+      const userCollection = collection(db, "buyers"); // Adjust based on your database structure
+
+      // First, try to query using the exact phone number
       let q = query(
         userCollection,
         where("phoneNumber", "==", formattedPhoneNumber)
@@ -128,6 +141,8 @@ export default function Login() {
       if (querySnapshot.empty) {
         // Try querying again without the +966 prefix
         const plainPhoneNumber = formattedPhoneNumber.replace("+966", "");
+        console.log("Trying again with phone number:", plainPhoneNumber);
+
         q = query(userCollection, where("phoneNumber", "==", plainPhoneNumber));
         querySnapshot = await getDocs(q);
       }
@@ -135,11 +150,13 @@ export default function Login() {
       if (!querySnapshot.empty) {
         // If user found, return their role and name
         const userData = querySnapshot.docs[0].data();
+        console.log("User data found:", userData);
         return {
-          role: userData.role,
+          role: userData.role || "buyer", // Default to buyer role if missing
           name: userData.name || "Anonymous", // Fallback to "Anonymous" if no name found
         };
       } else {
+        console.warn("No user found for either phone number format.");
         return null; // User not found
       }
     } catch (error) {
@@ -159,6 +176,7 @@ export default function Login() {
         </p>
 
         <div>
+          {/* Phone Number Input */}
           <label className='block mb-2 text-[#2c6449] font-medium'>
             Phone Number *
           </label>
@@ -176,6 +194,7 @@ export default function Login() {
             />
           </div>
 
+          {/* OTP Input (if OTP has been sent) */}
           {otpSent && (
             <>
               <label className='block mb-2 text-[#2c6449] font-medium'>
@@ -192,6 +211,7 @@ export default function Login() {
             </>
           )}
 
+          {/* Button to Send OTP or Verify OTP */}
           <button
             type='button'
             onClick={otpSent ? handleVerifyOtp : handleSendOtp}

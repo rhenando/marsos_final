@@ -18,10 +18,11 @@ import {
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false); // State for dropdown
   const router = useRouter();
 
   // Use UserContext-based user and role
-  const { user, role } = useUser();
+  const { user, role, setUser, setRole } = useUser();
 
   // Adjust scroll state
   useEffect(() => {
@@ -32,20 +33,31 @@ export default function Header() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Updated handleUserIconClick to prioritize UserContext role
-  const handleUserIconClick = () => {
-    if (user) {
-      if (role === "supplier") {
-        router.push("/dashboard/supplier");
-      } else if (role === "buyer") {
-        router.push("/dashboard/buyer");
-      }
-    } else {
-      router.push("/auth/registration");
+  // Handle logout function
+  const handleLogout = () => {
+    localStorage.removeItem("userInfo"); // Clear localStorage
+    setUser(null); // Clear user context
+    setRole(null); // Clear role context
+    router.push("/"); // Redirect to homepage
+    setIsDropdownOpen(false); // Close the dropdown
+  };
+
+  // Toggle dropdown visibility
+  const toggleDropdown = () => {
+    setIsDropdownOpen(!isDropdownOpen);
+  };
+
+  // Redirect to dashboard based on role
+  const handleDashboardClick = () => {
+    setIsDropdownOpen(false);
+    if (role === "supplier") {
+      router.push("/dashboard/supplier");
+    } else if (role === "buyer") {
+      router.push("/dashboard/buyer");
     }
   };
 
-  // Toggles mobile menu visibility
+  // Handle link click to close mobile menu
   const handleLinkClick = () => {
     setIsMenuOpen(false);
   };
@@ -76,19 +88,38 @@ export default function Header() {
               {isMenuOpen ? <FaTimes /> : <FaBars />}
             </button>
 
-            <div className='flex items-center space-x-2'>
+            <div className='relative'>
               <FaUser
                 className='text-2xl cursor-pointer hover:text-[#2c6449]'
-                onClick={handleUserIconClick}
+                onClick={toggleDropdown}
                 aria-label='User Account'
               />
-              {/* Display user information if logged in */}
-              {user ? (
-                <span className='text-sm text-white font-semibold'>
-                  {user.name || role} {/* Display name or role */}
-                </span>
-              ) : (
-                <span className='text-sm text-white'>Login</span>
+              {isDropdownOpen && (
+                <div className='absolute right-0 mt-2 w-48 bg-white shadow-md rounded-md py-2'>
+                  {user ? (
+                    <>
+                      <button
+                        className='block w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100'
+                        onClick={handleDashboardClick}
+                      >
+                        Dashboard
+                      </button>
+                      <button
+                        className='block w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100'
+                        onClick={handleLogout}
+                      >
+                        Logout
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      className='block w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100'
+                      onClick={() => router.push("/auth/registration")}
+                    >
+                      Login
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -110,50 +141,53 @@ export default function Header() {
               isScrolled ? "translate-x-[-50px]" : "translate-x-0"
             }`}
           >
-            <div className='flex justify-center md:justify-start space-x-6 relative'>
-              <div className='flex items-center space-x-2'>
-                <FaUser
-                  className='w-7 h-7 hover:text-[#2c6449] cursor-pointer'
-                  onClick={handleUserIconClick}
-                  aria-label='User Account'
-                />
-                {/* Display user information if logged in */}
-                {user ? (
-                  <span className='text-sm text-gray-700 font-semibold'>
-                    {user.name || role} {/* Display name or role */}
-                  </span>
-                ) : (
-                  <span className='text-sm text-gray-700'>Login</span>
-                )}
-              </div>
-              <FaShoppingCart
+            <div className='relative'>
+              <FaUser
                 className='w-7 h-7 hover:text-[#2c6449] cursor-pointer'
-                aria-label='Cart'
+                onClick={toggleDropdown}
+                aria-label='User Account'
               />
-              <FaClipboardList
-                className='w-7 h-7 hover:text-[#2c6449] cursor-pointer'
-                aria-label='Orders'
-              />
-              <FaCommentDots
-                className='w-7 h-7 hover:text-[#2c6449] cursor-pointer'
-                aria-label='Messages'
-              />
+              {isDropdownOpen && (
+                <div className='absolute right-0 mt-2 w-48 bg-white shadow-md rounded-md py-2'>
+                  {user ? (
+                    <>
+                      <button
+                        className='block w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100'
+                        onClick={handleDashboardClick}
+                      >
+                        Dashboard
+                      </button>
+                      <button
+                        className='block w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100'
+                        onClick={handleLogout}
+                      >
+                        Logout
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      className='block w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100'
+                      onClick={() => router.push("/auth/registration")}
+                    >
+                      Login
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
-            <div className='flex items-center justify-center md:justify-start space-x-2'>
-              <span className='text-lg'>التوصيل إلى:</span>
-              <Image
-                src='/sa-flag.svg'
-                alt='Saudi Flag'
-                width={24}
-                height={18}
-              />
-              <span className='text-lg font-semibold'>SA</span>
-            </div>
-
-            <div className='text-lg space-x-2 text-center md:text-left'>
-              <span>English-USD</span>
-            </div>
+            <FaShoppingCart
+              className='w-7 h-7 hover:text-[#2c6449] cursor-pointer'
+              aria-label='Cart'
+            />
+            <FaClipboardList
+              className='w-7 h-7 hover:text-[#2c6449] cursor-pointer'
+              aria-label='Orders'
+            />
+            <FaCommentDots
+              className='w-7 h-7 hover:text-[#2c6449] cursor-pointer'
+              aria-label='Messages'
+            />
           </div>
         </div>
       </header>
