@@ -2,54 +2,60 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useUser } from "../../../context/UserContext"; // Import User Context
+import { useRouter } from "next/navigation";
 import { db } from "../../../lib/firebase"; // Adjust based on your project structure
 import { collection, query, where, getDocs } from "firebase/firestore"; // Firestore functions
 
 export default function SupplierDashboard() {
-  const { user } = useUser(); // Fetch the user from the UserContext
+  const router = useRouter();
   const [supplierData, setSupplierData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Function to normalize phone number (remove any leading + if needed)
+  // Function to normalize phone number (ensure +966 prefix)
   const normalizePhoneNumber = (phoneNumber) => {
     return phoneNumber.startsWith("+") ? phoneNumber : `+966${phoneNumber}`;
   };
 
-  // Fetch supplier details from Firestore when the user is available
+  // Fetch supplier details from Firestore using phone number from localStorage
   useEffect(() => {
     const fetchSupplierDetails = async () => {
-      if (user && user.phoneNumber) {
-        try {
-          const normalizedPhoneNumber = normalizePhoneNumber(user.phoneNumber);
-          console.log("Normalized Phone Number:", normalizedPhoneNumber);
+      const phoneNumber = localStorage.getItem("phoneNumber");
 
-          // Use a query instead of doc reference to handle flexible phone numbers
-          const suppliersCollection = collection(db, "suppliers");
-          const q = query(
-            suppliersCollection,
-            where("phoneNumber", "==", normalizedPhoneNumber)
-          );
+      if (!phoneNumber) {
+        // Redirect to registration if no phone number is found (user not logged in)
+        router.replace("/auth/registration");
+        return;
+      }
 
-          const querySnapshot = await getDocs(q);
+      try {
+        const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
+        console.log("Normalized Phone Number:", normalizedPhoneNumber);
 
-          if (!querySnapshot.empty) {
-            const docData = querySnapshot.docs[0].data();
-            setSupplierData(docData);
-            console.log("Supplier Data:", docData); // Debugging supplier data
-          } else {
-            console.log("No supplier details found in Firestore");
-          }
-        } catch (error) {
-          console.error("Error fetching supplier details:", error);
-        } finally {
-          setLoading(false);
+        // Use a query to search for the supplier by phone number
+        const suppliersCollection = collection(db, "suppliers");
+        const q = query(
+          suppliersCollection,
+          where("phoneNumber", "==", normalizedPhoneNumber)
+        );
+
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+          const docData = querySnapshot.docs[0].data();
+          setSupplierData(docData);
+          console.log("Supplier Data:", docData); // Debugging supplier data
+        } else {
+          console.log("No supplier details found in Firestore");
         }
+      } catch (error) {
+        console.error("Error fetching supplier details:", error);
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchSupplierDetails();
-  }, [user]);
+  }, [router]);
 
   if (loading) {
     return <div>Loading...</div>;

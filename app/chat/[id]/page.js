@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useParams, useSearchParams } from "next/navigation";
 import { db } from "../../../lib/firebase";
 import {
   doc,
@@ -7,44 +8,107 @@ import {
   collection,
   addDoc,
   serverTimestamp,
+  onSnapshot,
+  query,
+  where,
+  getDocs,
 } from "firebase/firestore";
-import { useSession } from "next-auth/react"; // Import useSession from NextAuth
+import jwt from "jsonwebtoken";
 
-export default function ChatPage({ params }) {
-  const { id } = params; // The product or chat ID passed as a route parameter
+export default function ChatPage() {
+  const { id } = useParams();
+  const searchParams = useSearchParams();
+  const userNameParam = searchParams.get("userName") || "Anonymous";
+
+  const [userName, setUserName] = useState(userNameParam);
   const [productName, setProductName] = useState(null);
   const [supplierName, setSupplierName] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
-  const { data: session, status } = useSession(); // Use useSession to get the authenticated user's info
+  const [isTyping, setIsTyping] = useState(false); // New state for typing indicator
 
+  // Fetch user and product details
   useEffect(() => {
+    const fetchUserName = async () => {
+      const token = localStorage.getItem("token");
+      if (token) {
+        try {
+          const decodedToken = jwt.decode(token);
+          const phoneNumber = decodedToken?.phoneNumber;
+
+          if (phoneNumber) {
+            const userDoc = await fetchUserFromCollections(phoneNumber);
+            setUserName(userDoc?.name || userNameParam);
+          }
+        } catch (error) {
+          console.error("Error decoding token or fetching user data:", error);
+          setUserName(userNameParam);
+        }
+      }
+    };
+
+    fetchUserName();
+
     const fetchChatData = async () => {
+      if (!id) return;
+
       try {
-        // Fetch product details to get the product name and supplier's name
         const productDoc = await getDoc(doc(db, "products", id));
         if (productDoc.exists()) {
           const productData = productDoc.data();
           setProductName(productData.productName);
-          setSupplierName(productData.supplierName || "Supplier"); // Assuming supplier name is stored in the product document
+          setSupplierName(productData.supplierName || "Supplier");
         } else {
           console.error("Product not found.");
         }
-
-        // Fetch chat messages if available
-        const chatDoc = await getDoc(doc(db, "chats", id));
-        if (chatDoc.exists()) {
-          setMessages(chatDoc.data().messages || []);
-        }
       } catch (error) {
-        console.error("Error fetching chat data:", error);
+        console.error("Error fetching product data:", error);
       }
     };
 
-    fetchChatData();
-  }, [id]);
+    const chatRef = collection(db, "chats", id, "messages");
+    const unsubscribe = onSnapshot(chatRef, (snapshot) => {
+      setMessages(
+        snapshot.docs.map((doc) => ({
+          ...doc.data(),
+          id: doc.id,
+          timestamp: doc.data().timestamp?.toDate().toLocaleString() || "",
+        }))
+      );
+    });
 
-  // Function to handle sending a new message
+    fetchChatData();
+    return () => unsubscribe();
+  }, [id, userNameParam]);
+
+  const fetchUserFromCollections = async (phoneNumber) => {
+    const formattedPhoneNumber = phoneNumber.startsWith("+966")
+      ? phoneNumber
+      : `+966${phoneNumber}`;
+
+    const collections = ["buyers", "suppliers"];
+    for (const userCollection of collections) {
+      try {
+        const usersCollection = collection(db, userCollection);
+        const q = query(
+          usersCollection,
+          where("phoneNumber", "==", formattedPhoneNumber)
+        );
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+          return querySnapshot.docs[0].data();
+        }
+      } catch (error) {
+        console.error(
+          `Error fetching user data from ${userCollection} collection:`,
+          error
+        );
+      }
+    }
+    return null;
+  };
+
   const handleSendMessage = async () => {
     if (newMessage.trim() === "") return;
 
@@ -52,14 +116,9 @@ export default function ChatPage({ params }) {
       const chatRef = collection(db, "chats", id, "messages");
       await addDoc(chatRef, {
         text: newMessage,
-        sender: session?.user?.name || "Anonymous", // Use the authenticated user's name from the session
+        sender: userName,
         timestamp: serverTimestamp(),
       });
-
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        { text: newMessage, sender: session?.user?.name || "Anonymous" },
-      ]);
       setNewMessage("");
     } catch (error) {
       console.error("Error sending message:", error);
@@ -68,59 +127,54 @@ export default function ChatPage({ params }) {
 
   return (
     <div className='flex h-screen'>
-      {/* Left Chat Section */}
       <div className='w-2/3 bg-gray-100 p-6 flex flex-col'>
-        <div className='flex flex-col h-full'>
-          <div className='flex-1 overflow-y-auto'>
-            <div className='bg-white p-4 rounded-lg shadow'>
-              <h2 className='text-2xl font-semibold mb-4'>
-                {productName} - {supplierName}
-              </h2>
-              <div className='bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto'>
-                {messages.length > 0 ? (
-                  messages.map((msg, index) => (
-                    <div
-                      key={index}
-                      className={`mb-2 ${
-                        msg.sender === session?.user?.name
-                          ? "text-right"
-                          : "text-left"
-                      }`}
-                    >
-                      <p className='font-semibold'>{msg.sender}:</p>
-                      <p>{msg.text}</p>
-                    </div>
-                  ))
-                ) : (
-                  <p>No messages yet.</p>
-                )}
-              </div>
+        <div className='flex-1 overflow-y-auto'>
+          <div className='bg-white p-4 rounded-lg shadow'>
+            <h2 className='text-2xl font-semibold mb-4'>
+              {productName} - {supplierName}
+            </h2>
+            <div className='bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto'>
+              {messages.length > 0 ? (
+                messages.map((msg) => (
+                  <div key={msg.id} className='mb-2 text-left'>
+                    <p className='font-semibold'>{msg.sender}:</p>
+                    <p>{msg.text}</p>
+                    <span className='text-gray-500 text-xs'>
+                      {msg.timestamp}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p>No messages yet.</p>
+              )}
             </div>
+            {isTyping && (
+              <p className='text-gray-500 text-xs'>Supplier is typing...</p>
+            )}
           </div>
+        </div>
 
-          {/* Input box */}
-          <div className='mt-4'>
-            <input
-              type='text'
-              className='w-full border p-2 rounded-lg mb-2'
-              placeholder='Type your message...'
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-            />
-            <button
-              onClick={handleSendMessage}
-              className='w-full bg-blue-500 text-white py-2 rounded-lg'
-            >
-              Send
-            </button>
-          </div>
+        <div className='mt-4'>
+          <input
+            type='text'
+            className='w-full border p-2 rounded-lg mb-2'
+            placeholder='Type your message...'
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            onKeyDown={() => setIsTyping(true)} // Set typing status
+            onKeyUp={() => setIsTyping(false)} // Reset typing status after message
+          />
+          <button
+            onClick={handleSendMessage}
+            className='w-full bg-blue-500 text-white py-2 rounded-lg'
+          >
+            Send
+          </button>
         </div>
       </div>
 
-      {/* Right Sidebar - Messenger Section */}
       <div className='w-1/3 bg-white p-6 border-l border-gray-200'>
         <h2 className='text-xl font-semibold mb-4'>Messenger</h2>
-        {/* Example of past chat participants */}
         <div className='space-y-4'>
           <div className='flex items-center space-x-3 p-3 bg-gray-50 rounded-lg cursor-pointer'>
             <img
@@ -130,7 +184,6 @@ export default function ChatPage({ params }) {
             />
             <div>
               <h3 className='font-semibold'>{supplierName || "Supplier"}</h3>
-              <p className='text-gray-500 text-sm'>Hi</p>
             </div>
           </div>
 
@@ -141,10 +194,7 @@ export default function ChatPage({ params }) {
               className='w-12 h-12 rounded-full object-cover'
             />
             <div>
-              <h3 className='font-semibold'>
-                {session?.user?.name || "Buyer"}
-              </h3>
-              <p className='text-gray-500 text-sm'>Hello Supplier</p>
+              <h3 className='font-semibold'>{userName}</h3>
             </div>
           </div>
         </div>

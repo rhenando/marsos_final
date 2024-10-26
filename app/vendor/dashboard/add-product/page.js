@@ -1,21 +1,21 @@
 "use client";
 import { useState, useEffect } from "react";
 import { db, storage } from "../../../../lib/firebase";
-import { collection, addDoc, doc, getDoc } from "firebase/firestore";
+import { collection, addDoc, query, where, getDocs } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import Header from "@/components/Header";
+
 import Footer from "@/components/Footer";
+import Header from "@/components/Header";
 
 export default function AddProduct() {
   const [productName, setProductName] = useState("");
   const [category, setCategory] = useState("");
   const [location, setLocation] = useState("");
   const [stockQuantity, setStockQuantity] = useState("");
-  const [productDescription, setProductDescription] = useState(""); // Dropdown
+  const [productDescription, setProductDescription] = useState("");
   const [deliveryMethod, setDeliveryMethod] = useState("");
   const [deliveryTime, setDeliveryTime] = useState("");
 
-  // Separate state for each type of variation with individual prices
   const [colorVariations, setColorVariations] = useState([
     { color: "", price: "" },
   ]);
@@ -29,10 +29,9 @@ export default function AddProduct() {
   const [priceRanges, setPriceRanges] = useState([
     { minQuantity: "", maxQuantity: "", price: "" },
   ]);
-
   const [images, setImages] = useState([{ mainImage: null, thumbnail: null }]);
-  const [vendorId, setVendorId] = useState("currentVendorId");
-  const [companyName, setCompanyName] = useState("");
+  const [supplierName, setSupplierName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("+966541308463"); // Replace with actual phone number
 
   const [dimensions, setDimensions] = useState({
     height: { value: "", unit: "cm" },
@@ -42,24 +41,28 @@ export default function AddProduct() {
   });
 
   useEffect(() => {
-    const fetchVendorData = async () => {
+    const fetchSupplierData = async () => {
       try {
-        const vendorDocRef = doc(db, "vendors", vendorId);
-        const vendorDoc = await getDoc(vendorDocRef);
+        if (!phoneNumber) return;
 
-        if (vendorDoc.exists()) {
-          const vendorData = vendorDoc.data();
-          setCompanyName(vendorData.companyName || "");
+        const suppliersRef = collection(db, "suppliers");
+        const q = query(suppliersRef, where("phoneNumber", "==", phoneNumber));
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+          const supplierDoc = querySnapshot.docs[0];
+          const supplierData = supplierDoc.data();
+          setSupplierName(supplierData.name || ""); // Set supplier name automatically
         } else {
-          console.error("Vendor not found");
+          console.error("Supplier not found with the provided phone number");
         }
       } catch (error) {
-        console.error("Error fetching vendor data:", error);
+        console.error("Error fetching supplier data:", error);
       }
     };
 
-    fetchVendorData();
-  }, [vendorId]);
+    fetchSupplierData();
+  }, [phoneNumber]);
 
   const uploadImage = async (imageFile, filePath) => {
     const storageRef = ref(storage, filePath);
@@ -78,16 +81,17 @@ export default function AddProduct() {
         images.map(async (image, index) => {
           const mainImageURL = await uploadImage(
             image.mainImage,
-            `products/${vendorId}/mainImage_${timestamp}_${index}`
+            `products/${phoneNumber}/mainImage_${timestamp}_${index}`
           );
           const thumbnailURL = await uploadImage(
             image.thumbnail,
-            `products/${vendorId}/thumbnail_${timestamp}_${index}`
+            `products/${phoneNumber}/thumbnail_${timestamp}_${index}`
           );
           return { mainImage: mainImageURL, thumbnail: thumbnailURL };
         })
       );
 
+      // Add supplier name automatically to the product data
       await addDoc(collection(db, "products"), {
         productName,
         category,
@@ -101,12 +105,12 @@ export default function AddProduct() {
         typeVariations,
         priceRanges,
         images: uploadedImages,
-        vendorId,
-        companyName,
+        phoneNumber,
+        name: supplierName, // Automatically set supplier's name as "name" field
         dimensions,
       });
 
-      // Clear the form after submission
+      // Clear form fields after submission
       setProductName("");
       setCategory("");
       setLocation("");
@@ -132,7 +136,6 @@ export default function AddProduct() {
     }
   };
 
-  // Handle variation changes
   const handleVariationChange = (index, field, value, type) => {
     const updatedVariations =
       type === "color"
@@ -191,7 +194,7 @@ export default function AddProduct() {
       <div className='min-h-screen flex items-center justify-center bg-gray-100'>
         <div className='bg-white p-6 shadow-lg rounded-lg max-w-4xl w-full'>
           <h3 className='text-lg font-bold text-center mb-4'>
-            Vendor: {companyName || "Loading..."}
+            Supplier Name: {supplierName || "Loading..."}
           </h3>
 
           <form onSubmit={handleSubmit} className='grid grid-cols-2 gap-4'>
@@ -395,7 +398,7 @@ export default function AddProduct() {
               Add Another Type Variation
             </button>
 
-            {/* Price Ranges for Wholesale */}
+            {/* Price Ranges */}
             <h4 className='col-span-2 text-lg font-semibold'>
               Wholesale Price Ranges
             </h4>

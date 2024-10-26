@@ -1,65 +1,87 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { useUser } from "../../../context/UserContext"; // Import User Context
-import { db } from "../../../lib/firebase"; // Adjust based on your project structure
-import { collection, query, where, getDocs } from "firebase/firestore"; // Firestore functions
+import { useRouter } from "next/navigation";
+import { db } from "../../../lib/firebase";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import jwt from "jsonwebtoken";
 
 export default function BuyerDashboard() {
-  const { user } = useUser(); // Fetch user from UserContext
   const [buyerData, setBuyerData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
-  // Normalize phone number (handle cases with or without +966 prefix)
-  const normalizePhoneNumber = (phoneNumber) => {
-    return phoneNumber.startsWith("+") ? phoneNumber : `+966${phoneNumber}`;
-  };
-
-  // Fetch buyer details from Firestore when the user is available
   useEffect(() => {
     const fetchBuyerDetails = async () => {
-      if (user && user.phoneNumber) {
-        try {
-          const normalizedPhoneNumber = normalizePhoneNumber(user.phoneNumber);
-          console.log("Normalized Phone Number:", normalizedPhoneNumber);
+      // Step 1: Retrieve token from localStorage
+      const token = localStorage.getItem("token");
 
-          // Query Firestore for a buyer with the matching phone number
-          const buyersCollection = collection(db, "buyers");
-          let q = query(
-            buyersCollection,
-            where("phoneNumber", "==", normalizedPhoneNumber)
+      if (!token) {
+        console.error("No token found. Redirecting to login.");
+        router.push("/auth/registration");
+        return;
+      }
+
+      try {
+        // Step 2: Decode token without verifying (matches the Header component)
+        const decodedToken = jwt.decode(token);
+        let phoneNumber = decodedToken?.phoneNumber;
+
+        if (!phoneNumber) {
+          console.error(
+            "No phone number found in token. Redirecting to login."
           );
-
-          let querySnapshot = await getDocs(q);
-
-          if (querySnapshot.empty) {
-            // Retry without +966 prefix if not found
-            const plainPhoneNumber = normalizedPhoneNumber.replace("+966", "");
-            q = query(
-              buyersCollection,
-              where("phoneNumber", "==", plainPhoneNumber)
-            );
-            querySnapshot = await getDocs(q);
-          }
-
-          if (!querySnapshot.empty) {
-            const docData = querySnapshot.docs[0].data();
-            setBuyerData(docData);
-            console.log("Buyer Data:", docData); // Debugging buyer data
-          } else {
-            console.log("No buyer details found in Firestore");
-          }
-        } catch (error) {
-          console.error("Error fetching buyer details from Firestore:", error);
-        } finally {
-          setLoading(false);
+          router.push("/auth/registration");
+          return;
         }
+
+        // Remove country code prefix if necessary to match Firestore
+        if (phoneNumber.startsWith("+966")) {
+          phoneNumber = phoneNumber.slice(4);
+        }
+
+        console.log("Phone Number for Firestore Query:", phoneNumber);
+
+        // Step 3: Fetch user data from Firestore
+        const userDoc = await fetchUserFromFirestore(phoneNumber);
+        if (userDoc) {
+          setBuyerData(userDoc);
+        } else {
+          console.error("No buyer details found in Firestore.");
+        }
+      } catch (error) {
+        console.error("Error decoding token or fetching user data:", error);
+        router.push("/auth/registration");
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchBuyerDetails();
-  }, [user]);
+  }, [router]);
+
+  // Firestore query function
+  const fetchUserFromFirestore = async (phoneNumber) => {
+    try {
+      const buyersCollection = collection(db, "buyers");
+      const q = query(
+        buyersCollection,
+        where("phoneNumber", "==", phoneNumber)
+      );
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        const userData = querySnapshot.docs[0].data();
+        return userData;
+      } else {
+        console.warn("No user found for this phone number in Firestore.");
+        return null;
+      }
+    } catch (error) {
+      console.error("Error fetching user data from Firestore:", error);
+      return null;
+    }
+  };
 
   if (loading) {
     return <div>Loading...</div>;
@@ -87,45 +109,6 @@ export default function BuyerDashboard() {
         </div>
       </div>
 
-      {/* Order History */}
-      <div className='mt-8'>
-        <h2 className='text-lg font-semibold mb-4'>Order History</h2>
-        <table className='min-w-full bg-white'>
-          <thead>
-            <tr>
-              <th className='py-2 px-4'>Order ID</th>
-              <th className='py-2 px-4'>Product</th>
-              <th className='py-2 px-4'>Status</th>
-              <th className='py-2 px-4'>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td className='border py-2 px-4'>12345</td>
-              <td className='border py-2 px-4'>Laptop</td>
-              <td className='border py-2 px-4'>Delivered</td>
-              <td className='border py-2 px-4'>$1200</td>
-            </tr>
-            <tr>
-              <td className='border py-2 px-4'>12346</td>
-              <td className='border py-2 px-4'>Phone</td>
-              <td className='border py-2 px-4'>Shipped</td>
-              <td className='border py-2 px-4'>$800</td>
-            </tr>
-            {/* Add more rows as needed */}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Browse Products Section */}
-      <div className='mt-8'>
-        <Link href='/products'>
-          <button className='bg-green-500 text-white px-4 py-2 rounded'>
-            Browse Products
-          </button>
-        </Link>
-      </div>
-
       {/* Profile Information */}
       <div className='mt-8'>
         <h2 className='text-lg font-semibold mb-4'>Profile Information</h2>
@@ -142,7 +125,13 @@ export default function BuyerDashboard() {
 
       {/* Logout Button */}
       <div className='mt-8'>
-        <button className='bg-red-500 text-white px-4 py-2 rounded'>
+        <button
+          className='bg-red-500 text-white px-4 py-2 rounded'
+          onClick={() => {
+            localStorage.removeItem("token");
+            router.push("/auth/registration");
+          }}
+        >
           Logout
         </button>
       </div>

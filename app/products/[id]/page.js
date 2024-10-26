@@ -1,22 +1,54 @@
 "use client";
 import { useState, useEffect } from "react";
 import { db } from "../../../lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+} from "firebase/firestore";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Preloader from "@/components/Preloader";
+import jwt from "jsonwebtoken";
 
 export default function ProductDetailsPage({ params }) {
-  console.log("Route parameters:", params);
-
-  const { id } = params; // Use id from route parameters
+  const { id } = params; // Product ID from route parameters
   const [productData, setProductData] = useState(null);
   const [loading, setLoading] = useState(true); // Page loading state
+  const [userName, setUserName] = useState("Buyer"); // Default to 'Buyer' if no name from Firestore
 
   useEffect(() => {
-    async function fetchProduct() {
-      console.log("Starting to fetch product details...");
+    // Decode JWT from localStorage and retrieve user data from Firestore
+    const fetchUserName = async () => {
+      const token = localStorage.getItem("token");
+      if (token) {
+        try {
+          const decodedToken = jwt.decode(token);
+          let phoneNumber = decodedToken?.phoneNumber;
 
+          // Normalize phone number by removing country code if it exists
+          if (phoneNumber && phoneNumber.startsWith("+966")) {
+            phoneNumber = phoneNumber.slice(4);
+          }
+
+          if (phoneNumber) {
+            const userDoc = await fetchUserFromFirestore(phoneNumber);
+            setUserName(userDoc?.name || "Buyer"); // Use name from Firestore
+          }
+        } catch (error) {
+          console.error("Error decoding token or fetching user data:", error);
+          setUserName("Buyer");
+        }
+      } else {
+        console.warn("No token found in localStorage.");
+      }
+    };
+
+    // Fetch product details from Firestore
+    const fetchProduct = async () => {
       if (!id) {
         console.error("Product ID (id) is missing from the route parameters.");
         setLoading(false);
@@ -26,9 +58,7 @@ export default function ProductDetailsPage({ params }) {
       try {
         const productDoc = await getDoc(doc(db, "products", id));
         if (productDoc.exists()) {
-          const product = productDoc.data();
-          setProductData(product);
-          console.log("Fetched product data:", product);
+          setProductData(productDoc.data());
         } else {
           console.error("Product document not found in Firestore.");
         }
@@ -36,12 +66,31 @@ export default function ProductDetailsPage({ params }) {
         console.error("Error fetching product details:", error);
       } finally {
         setLoading(false);
-        console.log("Finished fetching product details.");
       }
-    }
+    };
 
+    fetchUserName();
     fetchProduct();
   }, [id]);
+
+  // Fetch user details from Firestore based on phone number
+  const fetchUserFromFirestore = async (phoneNumber) => {
+    try {
+      const usersCollection = collection(db, "buyers");
+      const q = query(usersCollection, where("phoneNumber", "==", phoneNumber));
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        return querySnapshot.docs[0].data();
+      } else {
+        console.warn("No user found for this phone number in Firestore.");
+        return null;
+      }
+    } catch (error) {
+      console.error("Error fetching user data from Firestore:", error);
+      return null;
+    }
+  };
 
   const handleOpenChat = () => {
     if (!productData) {
@@ -49,9 +98,8 @@ export default function ProductDetailsPage({ params }) {
       return;
     }
 
-    const chatUrl = `/chat/${id}?productName=${encodeURIComponent(
-      productData.productName || ""
-    )}&buyerName=${encodeURIComponent(productData.name || "")}`;
+    const chatUrl = `/chat/${id}?userName=${encodeURIComponent(userName)}`;
+    console.log("Opening chat URL:", chatUrl); // Debugging
     window.open(chatUrl, "_blank");
   };
 
@@ -96,7 +144,7 @@ export default function ProductDetailsPage({ params }) {
                 {productData.productName || "N/A"}
               </h1>
               <p className='text-gray-600 mb-4'>
-                Seller: {productData.name || "Unknown"}
+                Supplier: {productData.name || "Unknown"}
               </p>
               <div className='flex items-center mb-4'>
                 <span className='text-yellow-500 text-lg'>★ ★ ★ ★ ☆</span>
@@ -125,7 +173,7 @@ export default function ProductDetailsPage({ params }) {
                   Start order request
                 </button>
                 <button
-                  onClick={handleOpenChat} // Handle open chat
+                  onClick={handleOpenChat} // Open chat in a new tab
                   className='bg-transparent border border-gray-600 text-gray-600 py-2 px-6 rounded'
                 >
                   Contact supplier
@@ -138,7 +186,7 @@ export default function ProductDetailsPage({ params }) {
 
       <div className='fixed bottom-4 right-4'>
         <button
-          onClick={handleOpenChat} // Handle open chat
+          onClick={handleOpenChat} // Open chat in a new tab
           className='bg-transparent border border-gray-600 text-gray-600 py-2 px-6 rounded'
         >
           Messenger

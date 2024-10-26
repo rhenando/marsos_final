@@ -10,6 +10,7 @@ import authLogo from "../../../public/logo.svg"; // Ensure this logo path is cor
 export default function BuyerQuestionnaire() {
   const router = useRouter();
   const [formData, setFormData] = useState({
+    countryCode: "+966", // Default country code
     phoneNumber: "",
     name: "",
     email: "", // Email is optional
@@ -24,12 +25,8 @@ export default function BuyerQuestionnaire() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Send OTP by calling the server-side API route
   const handleSendOTP = async () => {
-    // Ensure the phone number includes the "+" symbol and country code
-    const formattedPhoneNumber = formData.phoneNumber.startsWith("+")
-      ? formData.phoneNumber
-      : `+966${formData.phoneNumber}`; // Prepend +966 if not already present
+    const formattedPhoneNumber = `${formData.countryCode}${formData.phoneNumber}`;
 
     try {
       const response = await fetch("/api/sendOtp", {
@@ -42,7 +39,7 @@ export default function BuyerQuestionnaire() {
 
       const result = await response.json();
       if (result.success) {
-        setOtpSent(true); // OTP was successfully sent
+        setOtpSent(true);
         alert("OTP sent! Please enter the code to continue.");
       } else {
         alert("Failed to send OTP. Please try again.");
@@ -53,11 +50,8 @@ export default function BuyerQuestionnaire() {
     }
   };
 
-  // Verify OTP by calling the server-side API route
   const handleVerifyOTP = async () => {
-    const formattedPhoneNumber = formData.phoneNumber.startsWith("+")
-      ? formData.phoneNumber
-      : `+966${formData.phoneNumber}`; // Ensure consistency in format
+    const formattedPhoneNumber = `${formData.countryCode}${formData.phoneNumber}`;
 
     try {
       const response = await fetch("/api/verifyOtp", {
@@ -73,7 +67,7 @@ export default function BuyerQuestionnaire() {
 
       const result = await response.json();
       if (result.success) {
-        setOtpVerified(true); // OTP successfully verified
+        setOtpVerified(true);
         alert("OTP verified! Proceeding with registration.");
       } else {
         alert("Invalid OTP. Please try again.");
@@ -84,35 +78,31 @@ export default function BuyerQuestionnaire() {
     }
   };
 
-  // Handle form submission
   const handleSubmit = async () => {
-    // If OTP hasn't been sent yet, send it and wait for user input
     if (!otpSent) {
-      await handleSendOTP(); // Send OTP on the first "Continue" click
+      await handleSendOTP();
       return;
     }
 
-    // If OTP is sent but not yet verified, ask for OTP input
     if (otpSent && !otpVerified) {
-      await handleVerifyOTP(); // Verify OTP when user clicks continue after entering OTP
+      await handleVerifyOTP();
       return;
     }
 
-    // Once OTP is verified, proceed with registration
     if (otpVerified) {
       setUploading(true);
       try {
-        // Save form data to Firestore with the "buyer" role
+        const formattedPhoneNumber = `${formData.countryCode}${formData.phoneNumber}`;
+
         const buyerRef = collection(db, "buyers");
         await addDoc(buyerRef, {
           ...formData,
-          otpVerified: true, // Mark phone as verified
-          role: "buyer", // Assign the buyer role
+          phoneNumber: formattedPhoneNumber,
+          otpVerified: true,
+          role: "buyer",
         });
 
         setUploading(false);
-
-        // Redirect to buyer dashboard after successful registration
         router.push("/login");
       } catch (error) {
         console.error("Error registering buyer:", error);
@@ -124,12 +114,10 @@ export default function BuyerQuestionnaire() {
   return (
     <div className='flex flex-col items-center justify-center min-h-screen bg-gray-50'>
       <div className='w-full max-w-md p-8 bg-white rounded-lg shadow-lg'>
-        {/* Logo */}
         <div className='flex justify-center mb-8'>
           <Image src={authLogo} alt='Logo' className='w-28 h-28' />
         </div>
 
-        {/* Form Title */}
         <h1 className='text-2xl text-center text-[#2c6449] font-semibold mb-4'>
           Buyer Registration
         </h1>
@@ -137,14 +125,27 @@ export default function BuyerQuestionnaire() {
           Please enter your phone number
         </p>
 
-        {/* Phone Number (required) */}
+        {/* Country Code and Phone Number Input */}
         <label className='block mb-2 text-[#2c6449] font-medium'>
           Phone Number *
         </label>
         <div className='flex items-center mb-4'>
-          <div className='flex items-center bg-gray-100 border border-gray-300 rounded-l-md px-3 h-10'>
-            <span className='text-gray-700'>🇸🇦 +966</span>
-          </div>
+          {/* Country Code Selector */}
+          <select
+            name='countryCode'
+            value={formData.countryCode}
+            onChange={handleChange}
+            className='p-2 border border-gray-300 rounded-l-md bg-gray-100 focus:outline-none'
+          >
+            {/* Add other country codes as options */}
+            <option value='+966'>+966</option>
+            <option value='+1'>+1</option>
+            <option value='+44'>+44</option>
+            <option value='+63'>+63</option>
+            {/* Add more options as needed */}
+          </select>
+
+          {/* Phone Number Input */}
           <input
             type='text'
             name='phoneNumber'
@@ -212,7 +213,6 @@ export default function BuyerQuestionnaire() {
             : "Continue"}
         </button>
 
-        {/* Optional footer link for existing users */}
         <p className='text-center mt-6 text-[#2c6449] font-semibold'>
           <a href='#' className='underline'>
             Login as a guest

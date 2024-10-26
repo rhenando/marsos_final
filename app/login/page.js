@@ -2,27 +2,25 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  doc,
-  getDoc,
-  query,
-  where,
-  collection,
-  getDocs,
-} from "firebase/firestore"; // Import Firestore functions
-import { db } from "../../lib/firebase"; // Adjust based on your project structure
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "../../lib/firebase";
 
 export default function Login() {
   const router = useRouter();
+  const [countryCode, setCountryCode] = useState("+966"); // Default country code for Saudi Arabia
   const [phoneNumber, setPhoneNumber] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
-  const [otpVerified, setOtpVerified] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // Handle phone number input change
   const handlePhoneNumberChange = (e) => {
     setPhoneNumber(e.target.value);
+  };
+
+  // Handle country code change
+  const handleCountryCodeChange = (e) => {
+    setCountryCode(e.target.value);
   };
 
   // Handle OTP input change
@@ -31,8 +29,15 @@ export default function Login() {
   };
 
   // Helper function to normalize phone number format for OTP
-  const normalizePhoneNumberForOtp = (phone) => {
-    return phone.startsWith("+") ? phone : `+966${phone}`;
+  const normalizePhoneNumberForOtp = () => {
+    return `${countryCode}${phoneNumber}`;
+  };
+
+  // Helper function to remove country code for saving
+  const removeCountryCode = (phone) => {
+    return phone.startsWith(countryCode)
+      ? phone.slice(countryCode.length)
+      : phone;
   };
 
   // Send OTP for login
@@ -42,7 +47,7 @@ export default function Login() {
       return;
     }
 
-    const formattedPhoneNumber = normalizePhoneNumberForOtp(phoneNumber); // Add +966 for OTP purposes
+    const formattedPhoneNumber = normalizePhoneNumberForOtp();
 
     setLoading(true);
     try {
@@ -67,14 +72,14 @@ export default function Login() {
     }
   };
 
-  // Verify OTP and fetch user role from Firestore
+  // Verify OTP and store JWT in localStorage
   const handleVerifyOtp = async () => {
     if (!otp) {
       alert("Please enter the OTP.");
       return;
     }
 
-    const formattedPhoneNumber = normalizePhoneNumberForOtp(phoneNumber); // Add +966 for OTP purposes
+    const formattedPhoneNumber = normalizePhoneNumberForOtp();
 
     setLoading(true);
     try {
@@ -89,30 +94,15 @@ export default function Login() {
 
       const result = await response.json();
       if (result.success) {
-        setOtpVerified(true);
         alert("OTP verified! Logging you in...");
 
-        // Fetch user from Firestore without the +966 prefix
-        const plainPhoneNumber = phoneNumber.startsWith("+966")
-          ? phoneNumber.slice(4)
-          : phoneNumber; // Remove +966 if it exists
+        // Remove country code from the phone number before saving
+        const sanitizedPhoneNumber = removeCountryCode(phoneNumber);
+        localStorage.setItem("phoneNumber", sanitizedPhoneNumber);
+        localStorage.setItem("token", result.token);
 
-        const userRole = await fetchUserRoleFromFirestore(plainPhoneNumber);
-
-        if (userRole) {
-          // Save user info in localStorage, including name and role
-          const userInfo = {
-            phoneNumber: plainPhoneNumber, // Store phone number without +966
-            name: userRole.name, // Store the user's name
-            role: userRole.role, // Store the user's role
-          };
-          localStorage.setItem("userInfo", JSON.stringify(userInfo));
-
-          // Redirect to homepage
-          router.push("/");
-        } else {
-          alert("User not found in the database.");
-        }
+        // Redirect to the homepage after login
+        router.push("/");
       } else {
         alert("Invalid OTP. Please try again.");
       }
@@ -121,38 +111,6 @@ export default function Login() {
       alert("Failed to verify OTP. Please try again.");
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Function to fetch user role from Firestore using plain phone number format
-  const fetchUserRoleFromFirestore = async (plainPhoneNumber) => {
-    console.log("Attempting to fetch user for phone number:", plainPhoneNumber);
-
-    try {
-      const userCollection = collection(db, "buyers"); // Adjust based on your database structure
-
-      // Query using the plain phone number (without +966)
-      const q = query(
-        userCollection,
-        where("phoneNumber", "==", plainPhoneNumber)
-      );
-      const querySnapshot = await getDocs(q);
-
-      if (!querySnapshot.empty) {
-        // If user found, return their role and name
-        const userData = querySnapshot.docs[0].data();
-        console.log("User data found:", userData);
-        return {
-          role: userData.role || "buyer", // Default to buyer role if missing
-          name: userData.name || "Anonymous", // Fallback to "Anonymous" if no name found
-        };
-      } else {
-        console.warn("No user found for the plain phone number format.");
-        return null; // User not found
-      }
-    } catch (error) {
-      console.error("Error fetching user role from Firestore:", error);
-      return null;
     }
   };
 
@@ -167,14 +125,25 @@ export default function Login() {
         </p>
 
         <div>
-          {/* Phone Number Input */}
+          {/* Country Code and Phone Number Input */}
           <label className='block mb-2 text-[#2c6449] font-medium'>
             Phone Number *
           </label>
           <div className='flex items-center mb-4'>
-            <div className='flex items-center bg-gray-100 border border-gray-300 rounded-l-md px-3 h-10'>
-              <span className='text-gray-700'>🇸🇦 +966</span>
-            </div>
+            {/* Country Code Selector */}
+            <select
+              value={countryCode}
+              onChange={handleCountryCodeChange}
+              className='p-2 border border-gray-300 rounded-l-md bg-gray-100 focus:outline-none'
+            >
+              <option value='+966'>+966</option>
+              <option value='+1'>+1</option>
+              <option value='+44'>+44</option>
+              <option value='+63'>+63</option>
+              {/* Add more country codes as needed */}
+            </select>
+
+            {/* Phone Number Input */}
             <input
               type='text'
               value={phoneNumber}
