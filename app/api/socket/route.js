@@ -11,9 +11,8 @@ export default function handler(req, res) {
       path: "/api/socket",
       transports: ["polling"], // Use polling for serverless compatibility
       cors: {
-        origin: ["http://localhost:3000", "https://marsos.vercel.app"],
+        origin: "https://marsos.vercel.app", // Only allow Vercel production URL
         methods: ["GET", "POST"],
-        allowedHeaders: ["Access-Control-Allow-Origin"],
         credentials: true,
       },
     });
