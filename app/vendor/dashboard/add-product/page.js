@@ -621,3 +621,304 @@ export default function AddProduct() {
     </>
   );
 }
+
+// "use client";
+// import { useState, useEffect } from "react";
+// import { db, storage } from "../../../../lib/firebase";
+// import { collection, addDoc, query, where, getDocs } from "firebase/firestore";
+// import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+
+// import Footer from "@/components/Footer";
+// import Header from "@/components/Header";
+
+// export default function AddProduct() {
+//   const [productName, setProductName] = useState("");
+//   const [category, setCategory] = useState("");
+//   const [location, setLocation] = useState("");
+//   const [stockQuantity, setStockQuantity] = useState("");
+//   const [productDescription, setProductDescription] = useState("");
+//   const [deliveryMethod, setDeliveryMethod] = useState("");
+//   const [deliveryTime, setDeliveryTime] = useState("");
+
+//   const [colorVariations, setColorVariations] = useState([
+//     { color: "", price: "" },
+//   ]);
+//   const [sizeVariations, setSizeVariations] = useState([
+//     { size: "", price: "" },
+//   ]);
+//   const [typeVariations, setTypeVariations] = useState([
+//     { type: "", price: "" },
+//   ]);
+//   const [priceRanges, setPriceRanges] = useState([
+//     { minQuantity: "", maxQuantity: "", price: "" },
+//   ]);
+//   const [images, setImages] = useState([{ mainImage: null, thumbnail: null }]);
+//   const [supplierName, setSupplierName] = useState("");
+//   const [phoneNumber, setPhoneNumber] = useState("+966541308463");
+
+//   const [dimensions, setDimensions] = useState({
+//     height: { value: "", unit: "cm" },
+//     weight: { value: "", unit: "kg" },
+//     length: { value: "", unit: "cm" },
+//     width: { value: "", unit: "cm" },
+//   });
+
+//   const [concreteBlocks, setConcreteBlocks] = useState([
+//     { type: "", className: "", cementContent: "", price: "" },
+//   ]);
+
+//   useEffect(() => {
+//     const fetchSupplierData = async () => {
+//       try {
+//         if (!phoneNumber) return;
+
+//         const suppliersRef = collection(db, "suppliers");
+//         const q = query(suppliersRef, where("phoneNumber", "==", phoneNumber));
+//         const querySnapshot = await getDocs(q);
+
+//         if (!querySnapshot.empty) {
+//           const supplierDoc = querySnapshot.docs[0];
+//           const supplierData = supplierDoc.data();
+//           setSupplierName(supplierData.name || ""); // Set supplier name automatically
+//         } else {
+//           console.error("Supplier not found with the provided phone number");
+//         }
+//       } catch (error) {
+//         console.error("Error fetching supplier data:", error);
+//       }
+//     };
+
+//     fetchSupplierData();
+//   }, [phoneNumber]);
+
+//   const uploadImage = async (imageFile, filePath) => {
+//     const storageRef = ref(storage, filePath);
+//     const snapshot = await uploadBytes(storageRef, imageFile);
+//     const downloadURL = await getDownloadURL(snapshot.ref);
+//     return downloadURL;
+//   };
+
+//   const handleConcreteBlockChange = (index, field, value) => {
+//     const updatedBlocks = [...concreteBlocks];
+//     updatedBlocks[index][field] = value;
+//     setConcreteBlocks(updatedBlocks);
+//   };
+
+//   const addConcreteBlock = () => {
+//     setConcreteBlocks([
+//       ...concreteBlocks,
+//       { type: "", className: "", cementContent: "", price: "" },
+//     ]);
+//   };
+
+//   const handleSubmit = async (e) => {
+//     e.preventDefault();
+
+//     try {
+//       const timestamp = new Date().getTime();
+
+//       const uploadedImages = await Promise.all(
+//         images.map(async (image, index) => {
+//           const mainImageURL = await uploadImage(
+//             image.mainImage,
+//             `products/${phoneNumber}/mainImage_${timestamp}_${index}`
+//           );
+//           const thumbnailURL = await uploadImage(
+//             image.thumbnail,
+//             `products/${phoneNumber}/thumbnail_${timestamp}_${index}`
+//           );
+//           return { mainImage: mainImageURL, thumbnail: thumbnailURL };
+//         })
+//       );
+
+//       // Add supplier name automatically to the product data
+//       await addDoc(collection(db, "products"), {
+//         productName,
+//         category,
+//         location,
+//         stockQuantity,
+//         productDescription,
+//         deliveryMethod,
+//         deliveryTime,
+//         colorVariations,
+//         sizeVariations,
+//         typeVariations,
+//         priceRanges,
+//         concreteBlocks,
+//         images: uploadedImages,
+//         phoneNumber,
+//         name: supplierName, // Automatically set supplier's name as "name" field
+//         dimensions,
+//       });
+
+//       setProductName("");
+//       setCategory("");
+//       setLocation("");
+//       setStockQuantity("");
+//       setProductDescription("");
+//       setDeliveryMethod("");
+//       setDeliveryTime("");
+//       setColorVariations([{ color: "", price: "" }]);
+//       setSizeVariations([{ size: "", price: "" }]);
+//       setTypeVariations([{ type: "", price: "" }]);
+//       setPriceRanges([{ minQuantity: "", maxQuantity: "", price: "" }]);
+//       setDimensions({
+//         height: { value: "", unit: "cm" },
+//         weight: { value: "", unit: "kg" },
+//         length: { value: "", unit: "cm" },
+//         width: { value: "", unit: "cm" },
+//       });
+//       setConcreteBlocks([{ type: "", className: "", cementContent: "", price: "" }]);
+//       setImages([{ mainImage: null, thumbnail: null }]);
+//       alert("Product added successfully!");
+//     } catch (error) {
+//       console.error("Error adding product:", error);
+//       alert("Failed to add product. Please try again.");
+//     }
+//   };
+
+//   const handleVariationChange = (index, field, value, type) => {
+//     const updatedVariations =
+//       type === "color"
+//         ? [...colorVariations]
+//         : type === "size"
+//         ? [...sizeVariations]
+//         : [...typeVariations];
+
+//     updatedVariations[index][field] = value;
+
+//     if (type === "color") setColorVariations(updatedVariations);
+//     if (type === "size") setSizeVariations(updatedVariations);
+//     if (type === "type") setTypeVariations(updatedVariations);
+//   };
+
+//   const addVariation = (type) => {
+//     if (type === "color") {
+//       setColorVariations([...colorVariations, { color: "", price: "" }]);
+//     } else if (type === "size") {
+//       setSizeVariations([...sizeVariations, { size: "", price: "" }]);
+//     } else if (type === "type") {
+//       setTypeVariations([...typeVariations, { type: "", price: "" }]);
+//     }
+//   };
+
+//   const handlePriceRangeChange = (index, field, value) => {
+//     const updatedRanges = [...priceRanges];
+//     updatedRanges[index][field] = value;
+//     setPriceRanges(updatedRanges);
+//   };
+
+//   const addPriceRange = () => {
+//     setPriceRanges([
+//       ...priceRanges,
+//       { minQuantity: "", maxQuantity: "", price: "" },
+//     ]);
+//   };
+
+//   const handleImageChange = (index, field, file) => {
+//     const updatedImages = [...images];
+//     updatedImages[index][field] = file;
+//     setImages(updatedImages);
+//   };
+
+//   const addImageFields = () => {
+//     setImages([...images, { mainImage: null, thumbnail: null }]);
+//   };
+
+//   const handleDimensionChange = (field, value, unit) => {
+//     setDimensions({ ...dimensions, [field]: { value, unit } });
+//   };
+
+//   return (
+//     <>
+//       <Header />
+//       <div className='min-h-screen flex items-center justify-center bg-gray-100'>
+//         <div className='bg-white p-6 shadow-lg rounded-lg max-w-4xl w-full'>
+//           <h3 className='text-lg font-bold text-center mb-4'>
+//             Supplier Name: {supplierName || "Loading..."}
+//           </h3>
+
+//           <form onSubmit={handleSubmit} className='grid grid-cols-2 gap-4'>
+//             {/* Product Name */}
+//             <input
+//               type='text'
+//               value={productName}
+//               onChange={(e) => setProductName(e.target.value)}
+//               placeholder='Product Name'
+//               className='border rounded p-2 w-full col-span-2'
+//               required
+//             />
+
+//             {/* Category and Location */}
+//             <input
+//               type='text'
+//               value={category}
+//               onChange={(e) => setCategory(e.target.value)}
+//               placeholder='Category'
+//               className='border rounded p-2 w-full'
+//               required
+//             />
+//             <input
+//               type='text'
+//               value={location}
+//               onChange={(e) => setLocation(e.target.value)}
+//               placeholder='Location'
+//               className='border rounded p-2 w-full'
+//               required
+//             />
+
+//             {/* Concrete Block Entry */}
+//             <h4 className='col-span-2 text-lg font-semibold'>Concrete Blocks</h4>
+//             {concreteBlocks.map((block, index) => (
+//               <div key={index} className='col-span-2 grid grid-cols-4 gap-2'>
+//                 <input
+//                   type='text'
+//                   value={block.type}
+//                   onChange={(e) => handleConcreteBlockChange(index, "type", e.target.value)}
+//                   placeholder='Type'
+//                   className='border rounded p-2'
+//                   required
+//                 />
+//                 <input
+//                   type='text'
+//                   value={block.className}
+//                   onChange={(e) => handleConcreteBlockChange(index, "className", e.target.value)}
+//                   placeholder='Class Name'
+//                   className='border rounded p-2'
+//                   required
+//                 />
+//                 <input
+//                   type='text'
+//                   value={block.cementContent}
+//                   onChange={(e) => handleConcreteBlockChange(index, "cementContent", e.target.value)}
+//                   placeholder='Cement Content'
+//                   className='border rounded p-2'
+//                   required
+//                 />
+//                 <input
+//                   type='number'
+//                   value={block.price}
+//                   onChange={(e) => handleConcreteBlockChange(index, "price", e.target.value)}
+//                   placeholder='Price (SAR)'
+//                   className='border rounded p-2'
+//                   required
+//                 />
+//               </div>
+//             ))}
+//             <button
+//               type='button'
+//               onClick={addConcreteBlock}
+//               className='bg-gray-300 text-black p-2 rounded col-span-2'
+//             >
+//               Add Concrete Block Configuration
+//             </button>
+
+//             {/* Other existing form fields */}
+//             {/* Include variations, price ranges, dimensions, images, etc. as in your previous form structure */}
+//           </form>
+//         </div>
+//       </div>
+//       <Footer />
+//     </>
+//   );
+// }

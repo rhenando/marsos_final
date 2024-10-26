@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useEffect } from "react";
 import { db } from "../../../lib/firebase";
 import {
@@ -18,11 +19,11 @@ export default function ProductDetailsPage({ params }) {
   const { id } = params; // Product ID from route parameters
   const [productData, setProductData] = useState(null);
   const [loading, setLoading] = useState(true); // Page loading state
-  const [userName, setUserName] = useState("Buyer"); // Default to 'Buyer' if no name from Firestore
+  const [name, setName] = useState("Buyer"); // Default to 'Buyer' if no name is set
+  const [role, setRole] = useState("buyer"); // Default role as 'buyer'
 
   useEffect(() => {
-    // Decode JWT from localStorage and retrieve user data from Firestore
-    const fetchUserName = async () => {
+    const fetchUserNameAndRole = async () => {
       const token = localStorage.getItem("token");
       if (token) {
         try {
@@ -36,18 +37,21 @@ export default function ProductDetailsPage({ params }) {
 
           if (phoneNumber) {
             const userDoc = await fetchUserFromFirestore(phoneNumber);
-            setUserName(userDoc?.name || "Buyer"); // Use name from Firestore
+            if (userDoc) {
+              setName(userDoc.name || "User"); // Use "name" from Firestore
+              setRole(userDoc.role); // Set role from fetched user data
+            }
           }
         } catch (error) {
           console.error("Error decoding token or fetching user data:", error);
-          setUserName("Buyer");
+          setName("Buyer");
+          setRole("buyer");
         }
       } else {
         console.warn("No token found in localStorage.");
       }
     };
 
-    // Fetch product details from Firestore
     const fetchProduct = async () => {
       if (!id) {
         console.error("Product ID (id) is missing from the route parameters.");
@@ -69,23 +73,38 @@ export default function ProductDetailsPage({ params }) {
       }
     };
 
-    fetchUserName();
+    fetchUserNameAndRole();
     fetchProduct();
   }, [id]);
 
-  // Fetch user details from Firestore based on phone number
   const fetchUserFromFirestore = async (phoneNumber) => {
     try {
-      const usersCollection = collection(db, "buyers");
-      const q = query(usersCollection, where("phoneNumber", "==", phoneNumber));
-      const querySnapshot = await getDocs(q);
+      // Check buyers collection first
+      const buyersCollection = collection(db, "buyers");
+      const buyerQuery = query(
+        buyersCollection,
+        where("phoneNumber", "==", phoneNumber)
+      );
+      const buyerSnapshot = await getDocs(buyerQuery);
 
-      if (!querySnapshot.empty) {
-        return querySnapshot.docs[0].data();
-      } else {
-        console.warn("No user found for this phone number in Firestore.");
-        return null;
+      if (!buyerSnapshot.empty) {
+        return { ...buyerSnapshot.docs[0].data(), role: "buyer" };
       }
+
+      // Check suppliers collection if not found in buyers
+      const suppliersCollection = collection(db, "suppliers");
+      const supplierQuery = query(
+        suppliersCollection,
+        where("phoneNumber", "==", phoneNumber)
+      );
+      const supplierSnapshot = await getDocs(supplierQuery);
+
+      if (!supplierSnapshot.empty) {
+        return { ...supplierSnapshot.docs[0].data(), role: "supplier" };
+      }
+
+      console.warn("No user found for this phone number in Firestore.");
+      return null;
     } catch (error) {
       console.error("Error fetching user data from Firestore:", error);
       return null;
@@ -98,8 +117,10 @@ export default function ProductDetailsPage({ params }) {
       return;
     }
 
-    const chatUrl = `/chat/${id}?userName=${encodeURIComponent(userName)}`;
-    console.log("Opening chat URL:", chatUrl); // Debugging
+    const chatUrl = `/chat/${id}?userName=${encodeURIComponent(
+      name
+    )}&role=${encodeURIComponent(role)}`;
+    console.log("Opening chat URL:", chatUrl); // Debugging log
     window.open(chatUrl, "_blank");
   };
 
