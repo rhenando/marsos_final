@@ -1,17 +1,15 @@
 // app/api/socket/route.js
 import { Server } from "socket.io";
 
-export const runtime = "nodejs"; // Ensures the use of Node.js runtime on Vercel
+export const runtime = "nodejs"; // Ensure Node.js runtime on Vercel
 
-export default async function handler(req, res) {
-  // Check if the Socket.IO server has already been initialized
+export default function handler(req, res) {
   if (!res.socket.server.io) {
-    console.log("Setting up Socket.IO server with polling...");
+    console.log("Setting up Socket.IO server...");
 
-    // Initialize a new instance of Socket.IO on the server
     const io = new Server(res.socket.server, {
       path: "/api/socket",
-      transports: ["polling"], // Use polling transport to ensure serverless compatibility
+      transports: ["polling"], // Use polling transport for serverless compatibility
       cors: {
         origin:
           process.env.NEXT_PUBLIC_SOCKET_URL || "https://marsos.vercel.app",
@@ -22,23 +20,21 @@ export default async function handler(req, res) {
 
     res.socket.server.io = io;
 
-    // Define event listeners
     io.on("connection", (socket) => {
       console.log("User connected:", socket.id);
 
-      // Listen for a message event
+      // Event listener for messages
       socket.on("message", (msg) => {
         console.log("Message received:", msg);
-        io.emit("message", msg); // Broadcast the message to all clients
+        io.emit("message", msg); // Broadcast message to all connected clients
       });
 
       socket.on("disconnect", () => {
         console.log("User disconnected:", socket.id);
       });
     });
-  } else {
-    console.log("Socket.IO server is already set up.");
   }
 
+  // End the response without sending HTTP headers
   res.end();
 }
