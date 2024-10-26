@@ -5,11 +5,17 @@ export const runtime = "nodejs"; // Ensure Node.js runtime on Vercel
 
 export default function handler(req, res) {
   if (!res.socket.server.io) {
-    console.log("Setting up Socket.IO server with polling...");
+    console.log("Setting up Socket.IO server with polling and CORS...");
 
     const io = new Server(res.socket.server, {
       path: "/api/socket",
       transports: ["polling"], // Use polling for serverless compatibility
+      cors: {
+        origin: ["http://localhost:3000", "https://marsos.vercel.app"],
+        methods: ["GET", "POST"],
+        allowedHeaders: ["Access-Control-Allow-Origin"],
+        credentials: true,
+      },
     });
 
     res.socket.server.io = io;
