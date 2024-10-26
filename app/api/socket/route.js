@@ -7,11 +7,17 @@ export default function handler(req, res) {
   if (!res.socket.server.io) {
     console.log("Setting up Socket.IO server with polling and CORS...");
 
+    // Define allowed origins based on environment
+    const allowedOrigin =
+      process.env.NODE_ENV === "production"
+        ? "https://marsos.vercel.app"
+        : "http://localhost:3000";
+
     const io = new Server(res.socket.server, {
       path: "/api/socket",
       transports: ["polling"], // Use polling for serverless compatibility
       cors: {
-        origin: "https://marsos.vercel.app", // Only allow Vercel production URL
+        origin: allowedOrigin, // Set CORS origin based on environment
         methods: ["GET", "POST"],
         credentials: true,
       },
