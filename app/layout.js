@@ -1,8 +1,5 @@
 "use client";
 
-import { SessionProvider } from "next-auth/react"; // Import SessionProvider from NextAuth.js
-import { UserProvider } from "../context/UserContext"; // Your custom UserProvider
-
 import localFont from "next/font/local";
 import "./globals.css";
 
@@ -25,11 +22,7 @@ export default function RootLayout({ children }) {
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {/* Wrap the app with NextAuth's SessionProvider */}
-        <SessionProvider>
-          {/* Nested custom UserProvider if additional state is needed */}
-          <UserProvider>{children}</UserProvider>
-        </SessionProvider>
+        {children}
       </body>
     </html>
   );

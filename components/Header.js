@@ -1,19 +1,11 @@
 "use client";
 
-import { useUser } from "../context/UserContext"; // Use user context for auth
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import logo from "../public/logo-marsos.svg";
-import {
-  FaUser,
-  FaShoppingCart,
-  FaClipboardList,
-  FaCommentDots,
-  FaBars,
-  FaTimes,
-} from "react-icons/fa";
+import { User, Menu, X } from "react-feather"; // Import Feather Icons
 
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -21,40 +13,18 @@ export default function Header() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false); // State for dropdown
   const router = useRouter();
 
-  // Use UserContext-based user and role
-  const { user, role, setUser, setRole } = useUser();
-
-  // Adjust scroll state
+  // Detect scroll position to apply styles to the horizontal menu only
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
+      setIsScrolled(window.scrollY > 100); // Trigger scroll effect after 100px
     };
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Handle logout function
-  const handleLogout = () => {
-    localStorage.removeItem("userInfo"); // Clear localStorage
-    setUser(null); // Clear user context
-    setRole(null); // Clear role context
-    router.push("/"); // Redirect to homepage
-    setIsDropdownOpen(false); // Close the dropdown
-  };
-
   // Toggle dropdown visibility
   const toggleDropdown = () => {
     setIsDropdownOpen(!isDropdownOpen);
-  };
-
-  // Redirect to dashboard based on role
-  const handleDashboardClick = () => {
-    setIsDropdownOpen(false);
-    if (role === "supplier") {
-      router.push("/dashboard/supplier");
-    } else if (role === "buyer") {
-      router.push("/dashboard/buyer");
-    }
   };
 
   // Handle link click to close mobile menu
@@ -64,134 +34,116 @@ export default function Header() {
 
   return (
     <>
+      {/* Static Top Header */}
       <header
-        className={`relative z-50 transition-all duration-500 ${
-          isScrolled
-            ? "fixed top-0 left-0 w-full z-50 bg-[#2c6449] text-white"
-            : "bg-white text-gray-800"
-        }`}
+        className='relative z-50 bg-white text-gray-800 transition-all duration-500'
         style={{ zIndex: 1000 }}
       >
-        <div className='absolute inset-0'></div>
+        <div className='max-w-screen-xl mx-auto px-4 lg:px-10 flex items-center justify-between py-3'>
+          {/* Left Side: User Icon and Hamburger Menu for Mobile */}
+          <div className='flex items-center space-x-4'>
+            {/* User Icon */}
+            <User
+              className='text-gray-800 cursor-pointer hover:text-[#2c6449]'
+              onClick={toggleDropdown}
+              aria-label='User Account'
+              size={24} // Feather icons use `size` prop for dimension
+            />
+            {isDropdownOpen && (
+              <div className='absolute left-0 mt-12 w-48 bg-white shadow-md rounded-md py-2'>
+                <button
+                  className='block w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100'
+                  onClick={() => router.push("/auth/registration")}
+                >
+                  Login
+                </button>
+              </div>
+            )}
 
-        <div
-          className={`relative max-w-screen-xl mx-auto px-4 lg:px-10 flex items-center justify-between md:flex-row-reverse py-3 transition-all duration-500 ${
-            isScrolled ? "py-2" : "py-3"
-          }`}
-        >
-          <div className='md:hidden flex items-center space-x-4'>
+            {/* Hamburger Menu Icon */}
             <button
-              className='text-2xl focus:outline-none'
+              className='text-gray-800 focus:outline-none md:hidden'
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               aria-label='Toggle menu'
             >
-              {isMenuOpen ? <FaTimes /> : <FaBars />}
-            </button>
-
-            <div className='relative'>
-              <FaUser
-                className='text-2xl cursor-pointer hover:text-[#2c6449]'
-                onClick={toggleDropdown}
-                aria-label='User Account'
-              />
-              {isDropdownOpen && (
-                <div className='absolute right-0 mt-2 w-48 bg-white shadow-md rounded-md py-2'>
-                  {user ? (
-                    <>
-                      <button
-                        className='block w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100'
-                        onClick={handleDashboardClick}
-                      >
-                        Dashboard
-                      </button>
-                      <button
-                        className='block w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100'
-                        onClick={handleLogout}
-                      >
-                        Logout
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      className='block w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100'
-                      onClick={() => router.push("/auth/registration")}
-                    >
-                      Login
-                    </button>
-                  )}
-                </div>
+              {isMenuOpen ? (
+                <X size={24} /> // Feather icons use `size` prop
+              ) : (
+                <Menu size={24} /> // Feather icons use `size` prop
               )}
-            </div>
+            </button>
           </div>
 
+          {/* Right Side: Logo aligned to the Right */}
           <Link href='/'>
-            <div className='ml-auto md:ml-0 transition-all duration-500'>
+            <div className='transition-all duration-500'>
               <Image
                 src={logo}
                 alt='Logo'
-                width={isScrolled ? 60 : 100}
-                height={isScrolled ? 60 : 100}
+                width={80}
+                height={80}
                 className='transition-all duration-500'
               />
             </div>
           </Link>
-
-          <div
-            className={`hidden md:flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-8 text-xl w-full md:w-auto transition-all duration-500 ${
-              isScrolled ? "translate-x-[-50px]" : "translate-x-0"
-            }`}
-          >
-            <div className='relative'>
-              <FaUser
-                className='w-7 h-7 hover:text-[#2c6449] cursor-pointer'
-                onClick={toggleDropdown}
-                aria-label='User Account'
-              />
-              {isDropdownOpen && (
-                <div className='absolute right-0 mt-2 w-48 bg-white shadow-md rounded-md py-2'>
-                  {user ? (
-                    <>
-                      <button
-                        className='block w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100'
-                        onClick={handleDashboardClick}
-                      >
-                        Dashboard
-                      </button>
-                      <button
-                        className='block w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100'
-                        onClick={handleLogout}
-                      >
-                        Logout
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      className='block w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100'
-                      onClick={() => router.push("/auth/registration")}
-                    >
-                      Login
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <FaShoppingCart
-              className='w-7 h-7 hover:text-[#2c6449] cursor-pointer'
-              aria-label='Cart'
-            />
-            <FaClipboardList
-              className='w-7 h-7 hover:text-[#2c6449] cursor-pointer'
-              aria-label='Orders'
-            />
-            <FaCommentDots
-              className='w-7 h-7 hover:text-[#2c6449] cursor-pointer'
-              aria-label='Messages'
-            />
-          </div>
         </div>
       </header>
 
+      {/* Horizontal Navigation Bar with Sticky Position and Scroll Animation */}
+      <nav
+        className={`${
+          isScrolled
+            ? "bg-white text-[#2c6449] shadow-md"
+            : "bg-[#2c6449] text-white"
+        } py-2 hidden lg:flex sticky top-0 z-40 transition-all duration-500`}
+      >
+        <div className='max-w-screen-xl mx-auto px-4 flex justify-between items-center'>
+          {/* Navigation Links */}
+          <div className='flex justify-center space-x-8 text-sm lg:text-base'>
+            <Link href='/' className='hover:text-gray-500'>
+              All categories
+            </Link>
+            <Link href='/' className='hover:text-gray-500'>
+              Featured selections
+            </Link>
+            <Link href='/' className='hover:text-gray-500'>
+              Trade Assurance
+            </Link>
+            <Link href='/' className='hover:text-gray-500'>
+              Buyer Central
+            </Link>
+            <Link href='/' className='hover:text-gray-500'>
+              Help Center
+            </Link>
+            <Link href='/' className='hover:text-gray-500'>
+              Get the app
+            </Link>
+            <Link
+              href='/'
+              className={`hover:text-gray-500 ${
+                isScrolled ? "text-[#2c6449]" : "text-white"
+              } mr-24`} /* Increased margin for more spacing */
+            >
+              Become a vendor
+            </Link>
+          </div>
+
+          {/* Right-Aligned Logo with Hover Effect */}
+          <div className='transition-opacity duration-500 ease-in-out transform hover:scale-110'>
+            <Image
+              src={logo}
+              alt='Right Logo'
+              width={40}
+              height={40}
+              className={`${
+                isScrolled ? "opacity-100" : "opacity-0"
+              } transition-opacity duration-500`}
+            />
+          </div>
+        </div>
+      </nav>
+
+      {/* Mobile Menu Dropdown */}
       <div
         className={`${
           isMenuOpen ? "block" : "hidden"
