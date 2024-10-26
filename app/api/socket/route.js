@@ -1,23 +1,20 @@
 // app/api/socket/route.js
 import { Server } from "socket.io";
 
-export const runtime = "nodejs"; // Ensure Node.js runtime on Vercel
+export const runtime = "nodejs"; // Ensures the use of Node.js runtime on Vercel
 
-export default function handler(req, res) {
+export default async function handler(req, res) {
+  // Check if the Socket.IO server has already been initialized
   if (!res.socket.server.io) {
-    console.log("Setting up Socket.IO server with polling and CORS...");
+    console.log("Setting up Socket.IO server with polling...");
 
-    // Define allowed origins based on environment
-    const allowedOrigin =
-      process.env.NODE_ENV === "production"
-        ? "https://marsos.vercel.app"
-        : "http://localhost:3000";
-
+    // Initialize a new instance of Socket.IO on the server
     const io = new Server(res.socket.server, {
       path: "/api/socket",
-      transports: ["polling"], // Use polling for serverless compatibility
+      transports: ["polling"], // Use polling transport to ensure serverless compatibility
       cors: {
-        origin: allowedOrigin, // Set CORS origin based on environment
+        origin:
+          process.env.NEXT_PUBLIC_SOCKET_URL || "https://marsos.vercel.app",
         methods: ["GET", "POST"],
         credentials: true,
       },
@@ -25,13 +22,14 @@ export default function handler(req, res) {
 
     res.socket.server.io = io;
 
+    // Define event listeners
     io.on("connection", (socket) => {
       console.log("User connected:", socket.id);
 
-      // Handle incoming message events
+      // Listen for a message event
       socket.on("message", (msg) => {
         console.log("Message received:", msg);
-        io.emit("message", msg); // Broadcast to all clients
+        io.emit("message", msg); // Broadcast the message to all clients
       });
 
       socket.on("disconnect", () => {
