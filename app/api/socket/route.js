@@ -1,20 +1,18 @@
 // app/api/socket/route.js
 import { Server } from "socket.io";
+import { NextResponse } from "next/server";
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
+export const runtime = "nodejs"; // Ensures Node.js compatibility on Vercel
 
-const ioHandler = (req, res) => {
-  if (!res.socket.server.io) {
-    console.log("Setting up Socket.IO server with polling...");
-    const io = new Server(res.socket.server, {
+let io;
+
+export function GET(req) {
+  if (!io) {
+    const httpServer = res.socket.server;
+    io = new Server(httpServer, {
       path: "/api/socket",
-      transports: ["polling"], // Use polling for serverless compatibility
+      transports: ["polling"], // Enable polling transport for compatibility
     });
-
     res.socket.server.io = io;
 
     io.on("connection", (socket) => {
@@ -30,10 +28,7 @@ const ioHandler = (req, res) => {
         console.log("User disconnected:", socket.id);
       });
     });
-  } else {
-    console.log("Socket.IO server already set up.");
   }
-  res.end();
-};
 
-export default ioHandler;
+  return NextResponse.json({ message: "Socket.IO server is set up" });
+}
